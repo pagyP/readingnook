@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Add Book - Reading Nook{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-container {
+        max-width: 500px;
+        margin: 0 auto;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #333;
+    }
+    
+    input[type="text"],
+    input[type="date"],
+    input[type="number"],
+    textarea {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-family: inherit;
+        font-size: 1em;
+    }
+    
+    textarea {
+        resize: vertical;
+        min-height: 100px;
+    }
+    
+    input[type="text"]:focus,
+    input[type="date"]:focus,
+    input[type="number"]:focus,
+    textarea:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+    }
+    
+    .form-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 30px;
+    }
+    
+    .form-actions button {
+        flex: 1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+    <div class="form-container">
+        <h2 style="color: #667eea; margin-bottom: 20px;">📖 Add a New Book</h2>
+        
+        <form method="POST">
+            <div class="form-group">
+                <label for="title">Book Title *</label>
+                <input type="text" id="title" name="title" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="author">Author *</label>
+                <input type="text" id="author" name="author" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="isbn">ISBN</label>
+                <input type="text" id="isbn" name="isbn" placeholder="978-0-123456-78-9">
+            </div>
+            
+            <div class="form-group">
+                <label for="genre">Genre</label>
+                <input type="text" id="genre" name="genre" placeholder="Fiction, Mystery, Science Fiction, etc.">
+            </div>
+            
+            <div class="form-group">
+                <label for="format">Format</label>
+                <select id="format" name="format" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                    <option value="physical">Physical Book</option>
+                    <option value="ebook">E-book</option>
+                    <option value="audiobook">Audiobook</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="date_read">Date Read *</label>
+                <input type="date" id="date_read" name="date_read" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="rating">Rating (1-5 stars)</label>
+                <input type="number" id="rating" name="rating" min="1" max="5">
+            </div>
+            
+            <div class="form-group">
+                <label for="notes">Notes</label>
+                <textarea id="notes" name="notes" placeholder="Your thoughts about the book..."></textarea>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Save Book</button>
+                <a href="{{ url_for('index') }}" class="btn btn-secondary" style="text-align: center;">Cancel</a>
+            </div>
+        </form>
+    </div>
+{% endblock %}
