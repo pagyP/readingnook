@@ -5,7 +5,7 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import DataRequired, Email, EqualTo, ValidationError
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 from dotenv import load_dotenv
 
@@ -27,7 +27,7 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     books = db.relationship('Book', backref='user', lazy=True, cascade='all, delete-orphan')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -48,7 +48,7 @@ class Book(db.Model):
     isbn = db.Column(db.String(20))
     genre = db.Column(db.String(100))
     format = db.Column(db.String(20), default='physical')  # 'physical' or 'ebook'
-    date_read = db.Column(db.DateTime, default=datetime.utcnow)
+    date_read = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     rating = db.Column(db.Integer)  # 1-5 stars
     notes = db.Column(db.Text)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
