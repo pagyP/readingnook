@@ -15,7 +15,8 @@ A simple Flask web application to track and record the books you've read.
 
 1. **Clone or create the project:**
    ```bash
-   cd /home/pagy/repos/readingnook
+   git clonehttps://github.com/pagyP/readingnook.git
+   cd readingnook
    ```
 
 2. **Create a virtual environment:**
