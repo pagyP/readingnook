@@ -40,30 +40,7 @@ services:
     networks:
       - readingnook_network
     restart: unless-stopped
-    command: >
-      sh -c "
-      echo 'Running database migrations...' &&
-      python -c 'from app import app, db; 
-        with app.app_context(): 
-          db.create_all()' &&
-      echo 'Starting Gunicorn...' &&
-      gunicorn --bind 0.0.0.0:8000 --workers 4 --timeout 60 --access-logfile - --error-logfile - app:app
-      "
-
-  nginx:
-    image: nginx:alpine
-    container_name: readingnook_nginx
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro
-    depends_on:
-      - web
-    networks:
-      - readingnook_network
-    restart: unless-stopped
+    command: sh -c "python -c 'from app import app, db; app.app_context().push(); db.create_all()' && gunicorn --bind 0.0.0.0:8000 --workers 4 --timeout 60 --access-logfile - --error-logfile - app:app"
 
 volumes:
   postgres_data:

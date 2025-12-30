@@ -35,11 +35,11 @@ docker-compose logs -f db
 # Check services are running
 docker-compose ps
 
-# Test the app
-curl http://localhost
+# Test the app (app runs on port 8000)
+curl http://localhost:8000
 
-# Access the app
-# Browser: http://your-server-ip
+# Access the app through your reverse proxy
+# Browser: http://your-domain.com (via nginx/caddy/etc)
 ```
 
 ### 4. Database Initialization
@@ -51,20 +51,26 @@ docker-compose exec web python -c "from app import app, db; app.app_context().pu
 ## Production Checklist
 
 ### Security
-- [x] HTTPS/SSL configured (uncomment in nginx.conf)
 - [x] Strong SECRET_KEY generated
 - [x] Strong DATABASE password set
 - [x] SESSION_COOKIE_SECURE=True
 - [x] FLASK_DEBUG=False
-- [x] Security headers configured in Nginx
 - [x] Non-root user in Docker
-- [ ] Firewall rules configured (only 80, 443 exposed)
+- [ ] HTTPS/SSL configured at reverse proxy level
+- [ ] Reverse proxy (nginx, caddy, etc.) configured externally
+- [ ] Firewall rules configured (port 8000 internal only, 80/443 at proxy)
 - [ ] Regular backups of PostgreSQL database
 
 ### Monitoring & Maintenance
 ```bash
 # View logs
 docker-compose logs -f
+
+# View web app logs
+docker-compose logs -f web
+
+# View database logs
+docker-compose logs -f db
 
 # Backup database
 docker-compose exec db pg_dump -U readingnook readingnook > backup.sql
@@ -82,36 +88,33 @@ docker-compose down
 docker-compose down -v
 ```
 
-## SSL/HTTPS Setup
+## Reverse Proxy Configuration
 
-### Using Let's Encrypt (Recommended)
-```bash
-# Install Certbot
-sudo apt-get install certbot python3-certbot-nginx
+The app runs on port 8000. Configure your external reverse proxy (nginx, caddy, Apache, etc.) to:
 
-# Generate certificate
-sudo certbot certonly --standalone -d your-domain.com
+1. Listen on ports 80 (HTTP) and 443 (HTTPS)
+2. Forward requests to `http://localhost:8000` or your app server IP
+3. Handle SSL/TLS termination
+4. Add security headers (X-Frame-Options, X-Content-Type-Options, etc.)
 
-# Copy certificates
-mkdir ssl
-sudo cp /etc/letsencrypt/live/your-domain.com/fullchain.pem ssl/cert.pem
-sudo cp /etc/letsencrypt/live/your-domain.com/privkey.pem ssl/key.pem
-sudo chown $USER:$USER ssl/*
+**Example nginx upstream block:**
+```nginx
+upstream readingnook {
+    server localhost:8000;
+}
 
-# Uncomment HTTPS section in nginx.conf
-# Update server_name in nginx.conf to your domain
-
-# Restart
-docker-compose restart nginx
-```
-
-### Auto-renewal
-```bash
-# Setup cron job for Let's Encrypt renewal
-sudo crontab -e
-
-# Add line:
-0 0 1 * * certbot renew --quiet && docker-compose restart nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+    
+    location / {
+        proxy_pass http://readingnook;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
 ```
 
 ## Scaling & Performance
@@ -197,10 +200,19 @@ docker run --rm -v readingnook_postgres_data:/data -v $(pwd):/backup \
 6. **Enable HTTPS** in production (not optional!)
 7. **Set up firewall** to limit access
 
-## Additional Resources
+## Architecture
 
-- Flask Documentation: https://flask.palletsprojects.com/
-- Docker Docs: https://docs.docker.com/
-- PostgreSQL Docs: https://www.postgresql.org/docs/
-- Nginx Docs: https://nginx.org/en/docs/
-- Let's Encrypt: https://letsencrypt.org/
+```
+Client Request
+     ↓
+[External Reverse Proxy: nginx/caddy/etc.]
+     ↓ (HTTP :8000)
+[Gunicorn App Container]
+     ↓
+[PostgreSQL Container]
+```
+
+- **App**: Runs on port 8000 inside container (not exposed to internet)
+- **Database**: Internal network, not exposed
+- **HTTPS**: Handled by your external reverse proxy
+- **Static files**: Served through Gunicorn (consider reverse proxy caching)
