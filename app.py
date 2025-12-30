@@ -40,7 +40,7 @@ class User(UserMixin, db.Model):
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 class Book(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
@@ -169,7 +169,7 @@ def add_book():
 @app.route('/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
 def edit_book(id):
-    book = Book.query.get_or_404(id)
+    book = db.get_or_404(Book, id)
     
     # Check if the book belongs to the current user
     if book.user_id != current_user.id:
@@ -197,7 +197,7 @@ def edit_book(id):
 @app.route('/delete/<int:id>')
 @login_required
 def delete_book(id):
-    book = Book.query.get_or_404(id)
+    book = db.get_or_404(Book, id)
     
     # Check if the book belongs to the current user
     if book.user_id != current_user.id:
