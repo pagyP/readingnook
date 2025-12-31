@@ -3,7 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, IntegerField, SelectField
-from wtforms.validators import DataRequired, Email, EqualTo, ValidationError, Length, Regexp, NumberRange
+from wtforms.validators import DataRequired, Email, EqualTo, ValidationError, Length, Regexp, NumberRange, Optional
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone
 from flask_limiter import Limiter
@@ -25,7 +25,7 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-key-change-in-production
 
 # Production Security Settings
 app.config['DEBUG'] = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
-app.config['TESTING'] = False
+app.config['TESTING'] = os.getenv('FLASK_ENV', '').lower() == 'testing'
 app.config['SESSION_COOKIE_SECURE'] = os.getenv('SESSION_COOKIE_SECURE', 'True').lower() == 'true'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
@@ -36,11 +36,16 @@ login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Please log in to access this page.'
 
-# Rate limiter for security
+# Rate limiter for security (disabled in testing)
+def limiter_enabled():
+    """Check if rate limiting should be enabled."""
+    return not (app.config.get('TESTING') or app.config.get('RATELIMIT_ENABLED') == False)
+
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"]
+    default_limits=["200 per day", "50 per hour"],
+    enabled=limiter_enabled
 )
 
 # User Model
@@ -161,11 +166,13 @@ class BookForm(FlaskForm):
         ('audiobook', 'Audiobook')
     ])
     rating = IntegerField('Rating', validators=[
+        Optional(),
         NumberRange(min=1, max=5, message='Rating must be between 1 and 5.')
     ])
     notes = StringField('Notes', validators=[
         Length(max=5000, message='Notes must be 5000 characters or less.')
     ])
+    date_read = StringField('Date Read')
     submit = SubmitField('Save Book')
 
 # Routes
@@ -236,6 +243,15 @@ def add_book():
     form = BookForm()
     if form.validate_on_submit():
         try:
+            # Parse date_read if provided
+            date_read = None
+            if form.date_read.data:
+                try:
+                    date_read = datetime.strptime(form.date_read.data, '%Y-%m-%d')
+                    date_read = date_read.replace(tzinfo=timezone.utc)
+                except ValueError:
+                    date_read = None
+            
             book = Book(
                 title=form.title.data,
                 author=form.author.data,
@@ -244,6 +260,7 @@ def add_book():
                 format=form.format.data,
                 rating=form.rating.data or None,
                 notes=form.notes.data or None,
+                date_read=date_read,
                 user_id=current_user.id
             )
             db.session.add(book)
@@ -269,6 +286,15 @@ def edit_book(id):
     form = BookForm()
     if form.validate_on_submit():
         try:
+            # Parse date_read if provided
+            date_read = None
+            if form.date_read.data:
+                try:
+                    date_read = datetime.strptime(form.date_read.data, '%Y-%m-%d')
+                    date_read = date_read.replace(tzinfo=timezone.utc)
+                except ValueError:
+                    date_read = book.date_read  # Keep original if parsing fails
+            
             book.title = form.title.data
             book.author = form.author.data
             book.isbn = form.isbn.data or None
@@ -276,6 +302,8 @@ def edit_book(id):
             book.format = form.format.data
             book.rating = form.rating.data or None
             book.notes = form.notes.data or None
+            if date_read:
+                book.date_read = date_read
             db.session.commit()
             flash(f'Book "{book.title}" updated successfully!', 'success')
             return redirect(url_for('index'))
@@ -291,6 +319,8 @@ def edit_book(id):
         form.format.data = book.format
         form.rating.data = book.rating
         form.notes.data = book.notes
+        if book.date_read:
+            form.date_read.data = book.date_read.strftime('%Y-%m-%d')
     
     return render_template('edit_book.html', form=form, book=book)
 

@@ -6,35 +6,59 @@ from datetime import datetime
 @pytest.fixture
 def client():
     """Create a test client for the app."""
+    # Configure app for testing with a file-based database
     app.config['TESTING'] = True
-    app.config['WTF_CSRF_ENABLED'] = False  # Disable CSRF for testing
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+    app.config['RATELIMIT_ENABLED'] = False
+    app.config['WTF_CSRF_ENABLED'] = False
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db'
     
+    # Setup database
     with app.app_context():
+        db.drop_all()  # Clean previous test runs
         db.create_all()
-        yield app.test_client()
+    
+    # Create test client
+    client = app.test_client()
+    
+    yield client
+    
+    # Teardown
+    with app.app_context():
         db.session.remove()
         db.drop_all()
+    
+    # Clean up test database file
+    import os
+    if os.path.exists('test.db'):
+        os.remove('test.db')
 
 
 @pytest.fixture
 def auth_user(client):
     """Create a test user and return client with user logged in."""
+    # Create user directly in the app context
     with app.app_context():
+        # Make sure to clear any cached sessions
+        from flask_login import current_user
+        
         user = User(username='testuser', email='test@example.com')
-        user.set_password('testpassword123')
+        user.set_password('TestPass123!')
         db.session.add(user)
         db.session.commit()
-        user_id = user.id
     
-    # Login the user
+    # Login the user using the test client
     response = client.post('/login', data={
         'email': 'test@example.com',
-        'password': 'testpassword123'
+        'password': 'TestPass123!'
     }, follow_redirects=True)
     
+    # Verify login was successful by checking response
+    assert response.status_code == 200, f"Login failed with status {response.status_code}"
+    
+    # Retrieve the user from database in a fresh context
     with app.app_context():
-        user = db.session.get(User, user_id)
+        user = User.query.filter_by(email='test@example.com').first()
+        assert user is not None, "User not found after creation"
     
     return client, user
 
@@ -53,8 +77,8 @@ class TestAuthentication:
         response = client.post('/register', data={
             'username': 'newuser',
             'email': 'newuser@example.com',
-            'password': 'securepass123',
-            'confirm_password': 'securepass123'
+            'password': 'SecurePass123!',
+            'confirm_password': 'SecurePass123!'
         }, follow_redirects=True)
         # Should redirect to login
         assert response.status_code == 200
@@ -68,15 +92,15 @@ class TestAuthentication:
         """Test registration fails with duplicate email."""
         with app.app_context():
             user = User(username='existing', email='existing@example.com')
-            user.set_password('password')
+            user.set_password('ValidPass123!')
             db.session.add(user)
             db.session.commit()
         
         response = client.post('/register', data={
             'username': 'newuser',
             'email': 'existing@example.com',
-            'password': 'password',
-            'confirm_password': 'password'
+            'password': 'ValidPass123!',
+            'confirm_password': 'ValidPass123!'
         })
         assert b'Email already registered' in response.data
     
@@ -84,15 +108,15 @@ class TestAuthentication:
         """Test registration fails with duplicate username."""
         with app.app_context():
             user = User(username='existing', email='existing@example.com')
-            user.set_password('password')
+            user.set_password('ValidPass123!')
             db.session.add(user)
             db.session.commit()
         
         response = client.post('/register', data={
             'username': 'existing',
             'email': 'different@example.com',
-            'password': 'password',
-            'confirm_password': 'password'
+            'password': 'ValidPass123!',
+            'confirm_password': 'ValidPass123!'
         })
         assert b'Username already exists' in response.data
     
@@ -106,13 +130,13 @@ class TestAuthentication:
         """Test successful login."""
         with app.app_context():
             user = User(username='testuser', email='test@example.com')
-            user.set_password('password123')
+            user.set_password('LoginPass123!')
             db.session.add(user)
             db.session.commit()
         
         response = client.post('/login', data={
             'email': 'test@example.com',
-            'password': 'password123'
+            'password': 'LoginPass123!'
         }, follow_redirects=True)
         # Should redirect to index
         assert response.status_code == 200
@@ -122,13 +146,13 @@ class TestAuthentication:
         """Test login fails with wrong password."""
         with app.app_context():
             user = User(username='testuser', email='test@example.com')
-            user.set_password('correctpassword')
+            user.set_password('CorrectPass123!')
             db.session.add(user)
             db.session.commit()
         
         response = client.post('/login', data={
             'email': 'test@example.com',
-            'password': 'wrongpassword'
+            'password': 'WrongPass123!'
         })
         assert b'Invalid email or password' in response.data or response.status_code == 200
     
@@ -192,6 +216,7 @@ class TestBookRoutes:
         response = client.post('/add', data={
             'title': 'Minimal Book',
             'author': 'Some Author',
+            'format': 'physical',
             'date_read': '2025-12-30'
         }, follow_redirects=True)
         assert response.status_code == 200
@@ -199,7 +224,7 @@ class TestBookRoutes:
         with app.app_context():
             book = Book.query.filter_by(title='Minimal Book').first()
             assert book is not None
-            assert book.format == 'physical'  # default
+            assert book.format == 'physical'
     
     def test_edit_book_page_loads(self, auth_user):
         """Test that edit book page loads."""
@@ -264,9 +289,9 @@ class TestBookRoutes:
         """Test that a user cannot edit another user's book."""
         with app.app_context():
             user1 = User(username='user1', email='user1@example.com')
-            user1.set_password('password')
+            user1.set_password('ValidPass123!')
             user2 = User(username='user2', email='user2@example.com')
-            user2.set_password('password')
+            user2.set_password('ValidPass123!')
             db.session.add(user1)
             db.session.add(user2)
             db.session.commit()
@@ -279,7 +304,7 @@ class TestBookRoutes:
         # Login as user2
         client.post('/login', data={
             'email': 'user2@example.com',
-            'password': 'password'
+            'password': 'ValidPass123!'
         }, follow_redirects=True)
         
         # Try to edit user1's book
