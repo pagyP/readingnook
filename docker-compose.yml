@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:15-alpine
+    image: postgres:18.1-alpine3.22
     container_name: readingnook_db
     environment:
       POSTGRES_USER: ${DB_USER:-readingnook}
@@ -26,7 +26,7 @@ services:
       FLASK_DEBUG: ${FLASK_DEBUG:-False}
       FLASK_ENV: ${FLASK_ENV:-production}
       SECRET_KEY: ${SECRET_KEY}
-      SQLALCHEMY_DATABASE_URI: postgresql://${DB_USER:-readingnook}:${DB_PASSWORD:-changeme}@db:5432/${DB_NAME:-readingnook}
+      SQLALCHEMY_DATABASE_URI: postgresql+psycopg://${DB_USER:-readingnook}:${DB_PASSWORD:-changeme}@db:5432/${DB_NAME:-readingnook}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-True}
     ports:
       - "8000:8000"
