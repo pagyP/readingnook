@@ -1,3 +1,5 @@
+[![Python application](https://github.com/pagyP/readingnook/actions/workflows/python-app.yml/badge.svg)](https://github.com/pagyP/readingnook/actions/workflows/python-app.yml)
+
 # Reading Nook 📚
 
 A simple Flask web application to track and record the books you've read.
