@@ -2,11 +2,14 @@ from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SubmitField
-from wtforms.validators import DataRequired, Email, EqualTo, ValidationError
+from wtforms import StringField, PasswordField, SubmitField, IntegerField, SelectField
+from wtforms.validators import DataRequired, Email, EqualTo, ValidationError, Length, Regexp, NumberRange
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 import os
+import re
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -33,6 +36,13 @@ login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Please log in to access this page.'
 
+# Rate limiter for security
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"]
+)
+
 # User Model
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -56,7 +66,7 @@ def load_user(user_id):
     return db.session.get(User, int(user_id))
 class Book(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(200), nullable=False)
+    title = db.Column(db.String(255), nullable=False)
     author = db.Column(db.String(200), nullable=False)
     isbn = db.Column(db.String(20))
     genre = db.Column(db.String(100))
@@ -69,11 +79,50 @@ class Book(db.Model):
     def __repr__(self):
         return f'<Book {self.title}>'
 
+# Custom Validators
+class ISBNValidator:
+    """Validates ISBN-10 or ISBN-13 format (with or without hyphens)"""
+    def __init__(self, message='Invalid ISBN format. Use ISBN-10 or ISBN-13.'):
+        self.message = message
+    
+    def __call__(self, form, field):
+        if not field.data:
+            return  # ISBN is optional
+        
+        # Remove hyphens for validation
+        isbn_clean = field.data.replace('-', '').replace(' ', '')
+        
+        # Check if it's 10 or 13 digits
+        if not (len(isbn_clean) == 10 or len(isbn_clean) == 13):
+            raise ValidationError(self.message)
+        
+        # Check all characters are digits
+        if not isbn_clean.isdigit():
+            raise ValidationError(self.message)
+
+def password_strength(form, field):
+    """Validate password has minimum length and complexity"""
+    password = field.data
+    if len(password) < 8:
+        raise ValidationError('Password must be at least 8 characters long.')
+    if not re.search(r'[A-Z]', password):
+        raise ValidationError('Password must contain at least one uppercase letter.')
+    if not re.search(r'[0-9]', password):
+        raise ValidationError('Password must contain at least one number.')
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
+        raise ValidationError('Password must contain at least one special character (!@#$%^&*(),.?":{}|<>).')
+
 # Forms
 class RegistrationForm(FlaskForm):
-    username = StringField('Username', validators=[DataRequired()])
+    username = StringField('Username', validators=[
+        DataRequired(),
+        Length(min=3, max=80, message='Username must be 3-80 characters.')
+    ])
     email = StringField('Email', validators=[DataRequired(), Email()])
-    password = PasswordField('Password', validators=[DataRequired()])
+    password = PasswordField('Password', validators=[
+        DataRequired(),
+        password_strength
+    ])
     confirm_password = PasswordField('Confirm Password', 
                                     validators=[DataRequired(), EqualTo('password')])
     submit = SubmitField('Sign Up')
@@ -93,6 +142,32 @@ class LoginForm(FlaskForm):
     password = PasswordField('Password', validators=[DataRequired()])
     submit = SubmitField('Log In')
 
+class BookForm(FlaskForm):
+    title = StringField('Title', validators=[
+        DataRequired(),
+        Length(min=1, max=255, message='Title must be 1-255 characters.')
+    ])
+    author = StringField('Author', validators=[
+        DataRequired(),
+        Length(min=1, max=200, message='Author name must be 1-200 characters.')
+    ])
+    isbn = StringField('ISBN', validators=[ISBNValidator()])
+    genre = StringField('Genre', validators=[
+        Length(max=100, message='Genre must be 100 characters or less.')
+    ])
+    format = SelectField('Format', validators=[DataRequired()], choices=[
+        ('physical', 'Physical Book'),
+        ('ebook', 'E-book'),
+        ('audiobook', 'Audiobook')
+    ])
+    rating = IntegerField('Rating', validators=[
+        NumberRange(min=1, max=5, message='Rating must be between 1 and 5.')
+    ])
+    notes = StringField('Notes', validators=[
+        Length(max=5000, message='Notes must be 5000 characters or less.')
+    ])
+    submit = SubmitField('Save Book')
+
 # Routes
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -111,6 +186,7 @@ def register():
     return render_template('register.html', form=form)
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('index'))
@@ -157,17 +233,17 @@ def index():
 @app.route('/add', methods=['GET', 'POST'])
 @login_required
 def add_book():
-    if request.method == 'POST':
+    form = BookForm()
+    if form.validate_on_submit():
         try:
             book = Book(
-                title=request.form['title'],
-                author=request.form['author'],
-                isbn=request.form.get('isbn'),
-                genre=request.form.get('genre'),
-                format=request.form.get('format', 'physical'),
-                rating=request.form.get('rating', type=int),
-                notes=request.form.get('notes'),
-                date_read=datetime.strptime(request.form['date_read'], '%Y-%m-%d'),
+                title=form.title.data,
+                author=form.author.data,
+                isbn=form.isbn.data or None,
+                genre=form.genre.data or None,
+                format=form.format.data,
+                rating=form.rating.data or None,
+                notes=form.notes.data or None,
                 user_id=current_user.id
             )
             db.session.add(book)
@@ -175,9 +251,10 @@ def add_book():
             flash(f'Book "{book.title}" added successfully!', 'success')
             return redirect(url_for('index'))
         except Exception as e:
+            db.session.rollback()
             flash(f'Error adding book: {str(e)}', 'error')
     
-    return render_template('add_book.html')
+    return render_template('add_book.html', form=form)
 
 @app.route('/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
@@ -189,23 +266,33 @@ def edit_book(id):
         flash('You do not have permission to edit this book.', 'error')
         return redirect(url_for('index'))
     
-    if request.method == 'POST':
+    form = BookForm()
+    if form.validate_on_submit():
         try:
-            book.title = request.form['title']
-            book.author = request.form['author']
-            book.isbn = request.form.get('isbn')
-            book.genre = request.form.get('genre')
-            book.format = request.form.get('format', 'physical')
-            book.rating = request.form.get('rating', type=int)
-            book.notes = request.form.get('notes')
-            book.date_read = datetime.strptime(request.form['date_read'], '%Y-%m-%d')
+            book.title = form.title.data
+            book.author = form.author.data
+            book.isbn = form.isbn.data or None
+            book.genre = form.genre.data or None
+            book.format = form.format.data
+            book.rating = form.rating.data or None
+            book.notes = form.notes.data or None
             db.session.commit()
             flash(f'Book "{book.title}" updated successfully!', 'success')
             return redirect(url_for('index'))
         except Exception as e:
+            db.session.rollback()
             flash(f'Error updating book: {str(e)}', 'error')
+    elif request.method == 'GET':
+        # Pre-populate form with book data
+        form.title.data = book.title
+        form.author.data = book.author
+        form.isbn.data = book.isbn
+        form.genre.data = book.genre
+        form.format.data = book.format
+        form.rating.data = book.rating
+        form.notes.data = book.notes
     
-    return render_template('edit_book.html', book=book)
+    return render_template('edit_book.html', form=form, book=book)
 
 @app.route('/delete/<int:id>')
 @login_required
