@@ -20,20 +20,20 @@ python3 -c "import secrets; print('DB_PASSWORD=' + secrets.token_urlsafe(32))"
 ### 2. Build and Start Containers
 ```bash
 # Build images
-docker-compose build
+docker compose build
 
 # Start services (detached)
-docker-compose up -d
+docker compose up -d
 
 # Check logs
-docker-compose logs -f web
-docker-compose logs -f db
+docker compose logs -f web
+docker compose logs -f db
 ```
 
 ### 3. Verify Deployment
 ```bash
 # Check services are running
-docker-compose ps
+docker compose ps
 
 # Test the app (app runs on port 8000)
 curl http://localhost:8000
@@ -45,7 +45,7 @@ curl http://localhost:8000
 ### 4. Database Initialization
 Database is automatically initialized on first run. To manually initialize:
 ```bash
-docker-compose exec web python -c "from app import app, db; app.app_context().push(); db.create_all()"
+docker compose exec web python -c "from app import app, db; app.app_context().push(); db.create_all()"
 ```
 
 ## Production Checklist
@@ -64,28 +64,28 @@ docker-compose exec web python -c "from app import app, db; app.app_context().pu
 ### Monitoring & Maintenance
 ```bash
 # View logs
-docker-compose logs -f
+docker compose logs -f
 
 # View web app logs
-docker-compose logs -f web
+docker compose logs -f web
 
 # View database logs
-docker-compose logs -f db
+docker compose logs -f db
 
 # Backup database
-docker-compose exec db pg_dump -U readingnook readingnook > backup.sql
+docker compose exec db pg_dump -U readingnook readingnook > backup.sql
 
 # Restore database
-docker-compose exec -T db psql -U readingnook readingnook < backup.sql
+docker compose exec -T db psql -U readingnook readingnook < backup.sql
 
-# Scale workers (edit docker-compose.yml gunicorn command)
+# Scale workers (edit docker compose.yml gunicorn command)
 # --workers 8  # for high traffic
 
 # Stop services
-docker-compose down
+docker compose down
 
 # Remove everything (careful!)
-docker-compose down -v
+docker compose down -v
 ```
 
 ## Reverse Proxy Configuration
@@ -120,7 +120,7 @@ server {
 ## Scaling & Performance
 
 ### Increase Workers
-Edit docker-compose.yml, change gunicorn command:
+Edit docker compose.yml, change gunicorn command:
 ```bash
 gunicorn --bind 0.0.0.0:8000 --workers 8 --timeout 60 ...
 ```
@@ -128,7 +128,7 @@ gunicorn --bind 0.0.0.0:8000 --workers 8 --timeout 60 ...
 ### Database Optimization
 ```bash
 # Connect to database
-docker-compose exec db psql -U readingnook readingnook
+docker compose exec db psql -U readingnook readingnook
 
 # Create indexes for better performance
 CREATE INDEX idx_book_user_id ON book(user_id);
@@ -139,31 +139,31 @@ CREATE INDEX idx_book_date_read ON book(date_read);
 
 ### App won't start
 ```bash
-docker-compose logs web
+docker compose logs web
 ```
 
 ### Database connection error
 ```bash
 # Check database is healthy
-docker-compose ps
+docker compose ps
 # Should show db as "Up"
 
 # Test connection
-docker-compose exec db psql -U readingnook -c "SELECT 1"
+docker compose exec db psql -U readingnook -c "SELECT 1"
 ```
 
 ### High memory usage
 ```bash
-# Reduce workers in docker-compose.yml
+# Reduce workers in docker compose.yml
 --workers 2
 
-# Or limit memory in docker-compose.yml:
+# Or limit memory in docker compose.yml:
 # mem_limit: 512m
 ```
 
 ### Need to run migrations
 ```bash
-docker-compose exec web python migrate.py
+docker compose exec web python migrate.py
 ```
 
 ## Backups
@@ -171,11 +171,11 @@ docker-compose exec web python migrate.py
 ### Database Backup
 ```bash
 # Full backup
-docker-compose exec db pg_dump -U readingnook readingnook > backup-$(date +%Y%m%d).sql
+docker compose exec db pg_dump -U readingnook readingnook > backup-$(date +%Y%m%d).sql
 
 # Automated daily backup
 # Add to crontab:
-0 2 * * * docker-compose -f /path/to/docker-compose.yml exec -T db pg_dump -U readingnook readingnook > /backups/readingnook-$(date +\%Y\%m\%d).sql
+0 2 * * * docker compose -f /path/to/docker compose.yml exec -T db pg_dump -U readingnook readingnook > /backups/readingnook-$(date +\%Y\%m\%d).sql
 ```
 
 ### Volume Backup
@@ -194,7 +194,7 @@ docker run --rm -v readingnook_postgres_data:/data -v $(pwd):/backup \
 
 1. **Never commit .env.production to git** - it's in .gitignore
 2. **Rotate SECRET_KEY** if compromised
-3. **Keep Docker images updated** - `docker-compose pull`
+3. **Keep Docker images updated** - `docker compose pull`
 4. **Monitor logs** for suspicious activity
 5. **Use strong passwords** for database
 6. **Enable HTTPS** in production (not optional!)
