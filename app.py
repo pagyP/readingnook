@@ -4,7 +4,8 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, IntegerField, SelectField
 from wtforms.validators import DataRequired, Email, EqualTo, ValidationError, Length, Regexp, NumberRange, Optional
-from werkzeug.security import generate_password_hash, check_password_hash
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
 from datetime import datetime, timezone
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -36,6 +37,9 @@ login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Please log in to access this page.'
 
+# Argon2 password hasher
+password_hasher = PasswordHasher()
+
 # Rate limiter for security (disabled in testing)
 def limiter_enabled():
     """Check if rate limiting should be enabled."""
@@ -58,10 +62,16 @@ class User(UserMixin, db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     
     def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
+        """Hash password using Argon2 (memory-hard, GPU-resistant)"""
+        self.password_hash = password_hasher.hash(password)
     
     def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
+        """Verify password against Argon2 hash"""
+        try:
+            password_hasher.verify(self.password_hash, password)
+            return True
+        except VerifyMismatchError:
+            return False
     
     def __repr__(self):
         return f'<User {self.username}>'
