@@ -5,15 +5,19 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, IntegerField, SelectField
 from wtforms.validators import DataRequired, Email, EqualTo, ValidationError, Length, Regexp, NumberRange, Optional
 from argon2 import PasswordHasher
-from argon2.exceptions import VerifyMismatchError
+from argon2.exceptions import VerifyMismatchError, InvalidHashError
 from datetime import datetime, timezone
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import os
 import re
+import logging
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Configure logging for security-related events
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 # Handle both SQLite (dev) and PostgreSQL (production)
@@ -66,11 +70,24 @@ class User(UserMixin, db.Model):
         self.password_hash = password_hasher.hash(password)
     
     def check_password(self, password):
-        """Verify password against Argon2 hash"""
+        """Verify password against Argon2 hash
+        
+        Returns:
+            True if password matches, False otherwise
+            
+        Handles:
+            - VerifyMismatchError: Password doesn't match (expected during failed login)
+            - InvalidHashError: Hash is malformed or from different algorithm (logs warning)
+        """
         try:
             password_hasher.verify(self.password_hash, password)
             return True
         except VerifyMismatchError:
+            # Expected: password doesn't match
+            return False
+        except InvalidHashError as e:
+            # Unexpected: hash is corrupted or from different algorithm
+            logger.warning(f'Invalid password hash for user {self.username}: {str(e)}')
             return False
     
     def __repr__(self):
