@@ -15,6 +15,20 @@
     .search-form {
         display: flex;
         gap: 10px;
+        flex-wrap: wrap;
+    }
+    
+    @media (max-width: 480px) {
+        .search-form {
+            flex-direction: column;
+        }
+        
+        .search-form input,
+        .search-form button,
+        .search-form a {
+            flex: 1;
+            min-width: 100%;
+        }
     }
     
     .search-form input {
@@ -42,9 +56,43 @@
     
     .books-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
         gap: 20px;
         margin-top: 20px;
+    }
+    
+    /* Mobile: 1 column */
+    @media (max-width: 480px) {
+        .books-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    /* Small tablets: 2 columns */
+    @media (min-width: 481px) and (max-width: 768px) {
+        .books-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+    
+    /* Large tablets and up: 3 columns */
+    @media (min-width: 769px) and (max-width: 1024px) {
+        .books-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+    
+    /* Desktop: 4 columns */
+    @media (min-width: 1025px) and (max-width: 1440px) {
+        .books-grid {
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
+    
+    /* Large desktop: 5 columns */
+    @media (min-width: 1441px) {
+        .books-grid {
+            grid-template-columns: repeat(5, 1fr);
+        }
     }
     
     .book-card {
@@ -99,6 +147,17 @@
         margin-top: 15px;
         display: flex;
         gap: 10px;
+        flex-wrap: wrap;
+    }
+    
+    @media (max-width: 480px) {
+        .book-actions {
+            flex-direction: column;
+        }
+        
+        .book-actions a {
+            flex: 1;
+        }
     }
     
     .book-actions a {
