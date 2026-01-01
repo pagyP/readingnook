@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Reading Nook{% endblock %}</title>
     <style>
+        /* 
+         * Standardized Breakpoints:
+         * Mobile: < 480px
+         * Tablet: 480px - 767px
+         * Desktop: 768px - 1439px
+         * Large Desktop: >= 1440px
+         */
+        
         * {
             margin: 0;
             padding: 0;
@@ -29,14 +37,16 @@
         }
         
         /* Mobile: full width */
-        @media (max-width: 768px) {
+        /* Mobile: full width, no frills */
+        @media (max-width: 479px) {
             .container {
                 max-width: 100%;
+                padding: 0;
             }
         }
         
         /* Tablet: good width with small margins */
-        @media (min-width: 769px) and (max-width: 1024px) {
+        @media (min-width: 480px) and (max-width: 767px) {
             .container {
                 max-width: 95%;
                 border-radius: 10px;
@@ -45,9 +55,18 @@
         }
         
         /* Desktop: responsive max-width */
-        @media (min-width: 1025px) {
+        @media (min-width: 768px) and (max-width: 1439px) {
             .container {
                 max-width: calc(100% - 40px);
+                border-radius: 10px;
+                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            }
+        }
+        
+        /* Large Desktop: constrained responsive max-width */
+        @media (min-width: 1440px) {
+            .container {
+                max-width: calc(100% - 80px);
                 border-radius: 10px;
                 box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
             }
@@ -102,13 +121,15 @@
             padding: 30px 20px;
         }
         
-        @media (min-width: 769px) {
+        /* Tablet and larger screens: increase padding */
+        @media (min-width: 480px) {
             .content {
                 padding: 40px 40px;
             }
         }
         
-        @media (min-width: 1025px) {
+        /* Desktop and larger screens: further increase padding */
+        @media (min-width: 768px) {
             .content {
                 padding: 40px 60px;
             }

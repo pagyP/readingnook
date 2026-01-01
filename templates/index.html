@@ -4,6 +4,14 @@
 
 {% block extra_css %}
 <style>
+    /* 
+     * Standardized Breakpoints (aligned with base.html):
+     * Mobile: < 480px
+     * Tablet: 480px - 767px
+     * Desktop: 768px - 1439px
+     * Large Desktop: >= 1440px
+     */
+    
     .search-container {
         background: #f9f9f9;
         padding: 20px;
@@ -18,7 +26,8 @@
         flex-wrap: wrap;
     }
     
-    @media (max-width: 480px) {
+    /* Mobile: stack search form vertically */
+    @media (max-width: 479px) {
         .search-form {
             flex-direction: column;
         }
@@ -62,35 +71,28 @@
     }
     
     /* Mobile: 1 column */
-    @media (max-width: 480px) {
+    @media (max-width: 479px) {
         .books-grid {
             grid-template-columns: 1fr;
         }
     }
     
-    /* Small tablets: 2 columns */
-    @media (min-width: 481px) and (max-width: 768px) {
+    /* Tablet: 2 columns */
+    @media (min-width: 480px) and (max-width: 767px) {
         .books-grid {
             grid-template-columns: repeat(2, 1fr);
         }
     }
     
-    /* Large tablets and up: 3 columns */
-    @media (min-width: 769px) and (max-width: 1024px) {
+    /* Desktop: 3-4 columns */
+    @media (min-width: 768px) and (max-width: 1439px) {
         .books-grid {
             grid-template-columns: repeat(3, 1fr);
         }
     }
     
-    /* Desktop: 4 columns */
-    @media (min-width: 1025px) and (max-width: 1440px) {
-        .books-grid {
-            grid-template-columns: repeat(4, 1fr);
-        }
-    }
-    
-    /* Large desktop: 5 columns */
-    @media (min-width: 1441px) {
+    /* Large Desktop: 5 columns */
+    @media (min-width: 1440px) {
         .books-grid {
             grid-template-columns: repeat(5, 1fr);
         }
@@ -151,7 +153,8 @@
         flex-wrap: wrap;
     }
     
-    @media (max-width: 480px) {
+    /* Mobile: stack actions vertically */
+    @media (max-width: 479px) {
         .book-actions {
             flex-direction: column;
         }
