@@ -4,6 +4,14 @@
 
 {% block extra_css %}
 <style>
+    /* 
+     * Standardized Breakpoints (aligned with base.html):
+     * Mobile: < 480px
+     * Tablet: 480px - 767px
+     * Desktop: 768px - 1439px
+     * Large Desktop: >= 1440px
+     */
+    
     .search-container {
         background: #f9f9f9;
         padding: 20px;
@@ -15,6 +23,21 @@
     .search-form {
         display: flex;
         gap: 10px;
+        flex-wrap: wrap;
+    }
+    
+    /* Mobile: stack search form vertically */
+    @media (max-width: 479px) {
+        .search-form {
+            flex-direction: column;
+        }
+        
+        .search-form input,
+        .search-form button,
+        .search-form a {
+            flex: initial;
+            min-width: 100%;
+        }
     }
     
     .search-form input {
@@ -45,6 +68,34 @@
         grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
         gap: 20px;
         margin-top: 20px;
+    }
+    
+    /* Mobile: 1 column */
+    @media (max-width: 479px) {
+        .books-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    /* Tablet: 2 columns */
+    @media (min-width: 480px) and (max-width: 767px) {
+        .books-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+    
+    /* Desktop: 3-4 columns */
+    @media (min-width: 768px) and (max-width: 1439px) {
+        .books-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+    
+    /* Large Desktop: 5 columns */
+    @media (min-width: 1440px) {
+        .books-grid {
+            grid-template-columns: repeat(5, 1fr);
+        }
     }
     
     .book-card {
@@ -99,6 +150,18 @@
         margin-top: 15px;
         display: flex;
         gap: 10px;
+        flex-wrap: wrap;
+    }
+    
+    /* Mobile: stack actions vertically */
+    @media (max-width: 479px) {
+        .book-actions {
+            flex-direction: column;
+        }
+        
+        .book-actions a {
+            flex: 1;
+        }
     }
     
     .book-actions a {
