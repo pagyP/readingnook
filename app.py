@@ -16,10 +16,22 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Create Flask app
+app = Flask(__name__)
+
 # Configure logging for security-related events
+# Only configure if not already configured (to avoid duplicate handlers)
+if not logging.root.handlers:
+    logging.basicConfig(
+        level=logging.WARNING,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.StreamHandler(),  # Output to console/stderr
+        ]
+    )
+
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
 # Handle both SQLite (dev) and PostgreSQL (production)
 db_uri = os.getenv('SQLALCHEMY_DATABASE_URI', 'sqlite:///readingnook.db')
 # Convert old postgresql:// to postgresql+psycopg:// for psycopg3
