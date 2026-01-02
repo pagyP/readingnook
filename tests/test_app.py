@@ -1,5 +1,5 @@
 import pytest
-from app import app, db, User, Book
+from app import app, db, User, Book, configure_logging
 from datetime import datetime
 
 
@@ -11,6 +11,10 @@ def client():
     app.config['RATELIMIT_ENABLED'] = False
     app.config['WTF_CSRF_ENABLED'] = False
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db'
+    
+    # Reconfigure logging after setting TESTING flag
+    # This ensures the logger respects the TESTING configuration
+    configure_logging(app)
     
     # Setup database
     with app.app_context():

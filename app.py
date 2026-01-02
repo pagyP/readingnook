@@ -19,21 +19,29 @@ load_dotenv()
 # Create Flask app
 app = Flask(__name__)
 
-# Configure Flask's built-in logger for security events
-# Set logging level to WARNING to capture security issues
-app.config['PROPAGATE_EXCEPTIONS'] = True
-if app.debug or app.testing:
-    app.logger.setLevel(logging.DEBUG)
-else:
-    app.logger.setLevel(logging.WARNING)
-
-# Add a console handler to Flask's logger if not already present
-if not app.logger.handlers:
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    ))
-    app.logger.addHandler(console_handler)
+# Logging configuration function
+def configure_logging(flask_app):
+    """Configure Flask's built-in logger for security events.
+    
+    This function should be called after the app is fully configured
+    to ensure the TESTING and DEBUG flags are properly respected.
+    
+    Args:
+        flask_app: The Flask application instance
+    """
+    # Set logging level based on current configuration
+    if flask_app.config.get('TESTING') or flask_app.config.get('DEBUG'):
+        flask_app.logger.setLevel(logging.DEBUG)
+    else:
+        flask_app.logger.setLevel(logging.WARNING)
+    
+    # Add console handler if not already present
+    if not flask_app.logger.handlers:
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        ))
+        flask_app.logger.addHandler(console_handler)
 
 # Handle both SQLite (dev) and PostgreSQL (production)
 db_uri = os.getenv('SQLALCHEMY_DATABASE_URI', 'sqlite:///readingnook.db')
@@ -50,6 +58,9 @@ app.config['SESSION_COOKIE_SECURE'] = os.getenv('SESSION_COOKIE_SECURE', 'True')
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['PERMANENT_SESSION_LIFETIME'] = 24 * 60 * 60  # 24 hours
+
+# Configure logging after all configuration is set
+configure_logging(app)
 
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
