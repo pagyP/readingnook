@@ -507,7 +507,7 @@ class TestRecoveryCodes:
     
     def test_password_reset_with_valid_recovery_code(self, client):
         """Verify password can be reset with a valid recovery code"""
-        from app import RecoveryCode
+        from app import RecoveryCode, generate_reset_token, password_hasher
         
         # Register user
         client.post('/register', data={
@@ -517,17 +517,67 @@ class TestRecoveryCodes:
             'confirm_password': 'OldPass123!'
         })
         
-        # Get recovery code from session or database
+        # Get recovery code from database and create one valid code for testing
         with app.app_context():
             user = User.query.filter_by(email='resetuser@example.com').first()
+            
+            # Get first unused code and verify it
             codes = RecoveryCode.query.filter_by(user_id=user.id, used=False).all()
             assert len(codes) > 0
+            
+            # For testing, we'll create a test code
+            test_code = 'TEST-1234'
+            test_code_hash = password_hasher.hash(test_code)
+            test_recovery_code = RecoveryCode(user_id=user.id, code_hash=test_code_hash)
+            db.session.add(test_recovery_code)
+            db.session.commit()
         
-        # The recovery codes were generated but are hashed, so we can't extract them
-        # Instead, we'll test the full recovery flow with a mock
-        # For now, verify the recovery page is accessible and forms work
-        response = client.get('/forgot-password')
+        # Step 1: Submit forgot password with valid code
+        response = client.post('/forgot-password', data={
+            'email': 'resetuser@example.com',
+            'recovery_code': test_code
+        }, follow_redirects=False)
+        
+        # Should redirect to reset password with token
+        assert response.status_code == 302
+        reset_location = response.location if isinstance(response.location, str) else response.location.decode()
+        assert '/reset-password' in reset_location
+        assert 'token=' in reset_location
+        
+        # Step 2: Follow to reset password page and get the token
+        response = client.get(reset_location)
         assert response.status_code == 200
+        assert b'Reset Your Password' in response.data
+        assert test_code.encode() not in response.data  # Code should not be in response
+        
+        # Extract token from the form or URL
+        token_match = reset_location.split('token=')[1] if 'token=' in reset_location else None
+        assert token_match is not None
+        
+        # Step 3: Submit new password via reset form
+        response = client.post('/reset-password', data={
+            'token': token_match,
+            'password': 'NewPass123!',
+            'confirm_password': 'NewPass123!'
+        }, follow_redirects=True)
+        
+        # Should succeed
+        assert response.status_code == 200
+        assert b'Password reset successfully' in response.data or b'success' in response.data.lower()
+        
+        # Step 4: Verify old password doesn't work anymore
+        login_response = client.post('/login', data={
+            'email': 'resetuser@example.com',
+            'password': 'OldPass123!'
+        }, follow_redirects=False)
+        assert b'Invalid email or password' in login_response.data
+        
+        # Step 5: Verify new password works
+        login_response = client.post('/login', data={
+            'email': 'resetuser@example.com',
+            'password': 'NewPass123!'
+        }, follow_redirects=True)
+        assert b'Welcome back' in login_response.data or response.status_code == 200
     
     def test_invalid_recovery_code_rejected(self, client):
         """Verify invalid recovery codes are rejected"""

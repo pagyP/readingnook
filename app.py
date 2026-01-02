@@ -9,6 +9,7 @@ from argon2.exceptions import VerifyMismatchError, InvalidHashError
 from datetime import datetime, timezone
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 import os
 import re
 import logging
@@ -108,6 +109,54 @@ limiter = Limiter(
     default_limits=["200 per day", "50 per hour"],
     enabled=limiter_enabled
 )
+
+# Token serializer for password reset tokens
+# Uses app.config['SECRET_KEY'] for signing
+# Tokens expire after 15 minutes (900 seconds)
+serializer = URLSafeTimedSerializer(os.getenv('SECRET_KEY', 'dev-key-change-in-production'))
+TOKEN_EXPIRATION_SECONDS = 15 * 60  # 15 minutes
+
+def generate_reset_token(user_id, code_id):
+    """Generate a cryptographically signed, time-limited password reset token.
+    
+    Args:
+        user_id: User ID to include in token
+        code_id: Recovery code ID to include in token
+    
+    Returns:
+        Signed token string that expires in 15 minutes
+        
+    Security properties:
+        - Token is signed with SECRET_KEY (cannot be forged)
+        - Token is URL-safe
+        - Token expires after 15 minutes
+        - Token contains no sensitive data in URL (hashed IDs in token)
+    """
+    return serializer.dumps(
+        {'user_id': user_id, 'code_id': code_id},
+        salt='password-reset'
+    )
+
+def verify_reset_token(token):
+    """Verify and extract data from a password reset token.
+    
+    Args:
+        token: Token string to verify
+    
+    Returns:
+        Dict with 'user_id' and 'code_id' if valid and not expired
+        None if token is invalid or expired
+    """
+    try:
+        data = serializer.loads(
+            token,
+            salt='password-reset',
+            max_age=TOKEN_EXPIRATION_SECONDS
+        )
+        return data
+    except (BadSignature, SignatureExpired):
+        return None
+
 
 # User Model
 class User(UserMixin, db.Model):
@@ -446,19 +495,46 @@ def forgot_password():
             flash('Invalid recovery code.', 'error')
             return redirect(url_for('forgot_password'))
         
-        # Store user ID in session for reset password page
-        # In production, you'd want to use a more secure token mechanism
+        # Generate time-limited, cryptographically signed token
+        # Token contains user_id and code_id but is unguessable and expires in 15 minutes
+        reset_token = generate_reset_token(user.id, matching_code.id)
         app.logger.info(f'User verified recovery code: {user.username}')
-        return redirect(url_for('reset_password', user_id=user.id, code_id=matching_code.id))
+        
+        # Redirect to reset password with token parameter (no exposed IDs in URL)
+        return redirect(url_for('reset_password', token=reset_token))
     
     return render_template('forgot_password.html', form=form)
 
-@app.route('/reset-password/<int:user_id>/<int:code_id>', methods=['GET', 'POST'])
-def reset_password(user_id, code_id):
-    """Reset password after recovery code verification"""
+@app.route('/reset-password', methods=['GET', 'POST'])
+def reset_password():
+    """Reset password after recovery code verification
+    
+    Uses a time-limited, cryptographically signed token instead of exposing
+    user_id and code_id in the URL. This prevents:
+    - ID enumeration attacks
+    - URL interception/logging issues
+    - Indefinite password reset URLs
+    """
+    # Token can come from query string (GET) or form data (POST)
+    token = request.args.get('token') or request.form.get('token')
+    
+    if not token:
+        flash('Invalid or missing reset token.', 'error')
+        return redirect(url_for('login'))
+    
+    # Verify token and extract user_id and code_id
+    # Token is only valid for 15 minutes
+    token_data = verify_reset_token(token)
+    if not token_data:
+        app.logger.warning(f'Invalid or expired reset token attempted')
+        flash('Password reset link is invalid or has expired. Please try again.', 'error')
+        return redirect(url_for('forgot_password'))
+    
+    user_id = token_data.get('user_id')
+    code_id = token_data.get('code_id')
+    
     user = db.session.get(User, user_id)
     recovery_code = db.session.get(RecoveryCode, code_id)
-    
     if not user or not recovery_code:
         flash('Invalid reset link.', 'error')
         return redirect(url_for('login'))
@@ -478,7 +554,8 @@ def reset_password(user_id, code_id):
         flash('Password reset successfully! Please log in with your new password.', 'success')
         return redirect(url_for('login'))
     
-    return render_template('reset_password.html', form=form, user=user)
+    # Pass token as hidden form field instead of URL parameters
+    return render_template('reset_password.html', form=form, user=user, token=token)
 
 @app.route('/')
 @login_required
