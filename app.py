@@ -19,18 +19,21 @@ load_dotenv()
 # Create Flask app
 app = Flask(__name__)
 
-# Configure logging for security-related events
-# Only configure if not already configured (to avoid duplicate handlers)
-if not logging.root.handlers:
-    logging.basicConfig(
-        level=logging.WARNING,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.StreamHandler(),  # Output to console/stderr
-        ]
-    )
+# Configure Flask's built-in logger for security events
+# Set logging level to WARNING to capture security issues
+app.config['PROPAGATE_EXCEPTIONS'] = True
+if app.debug or app.testing:
+    app.logger.setLevel(logging.DEBUG)
+else:
+    app.logger.setLevel(logging.WARNING)
 
-logger = logging.getLogger(__name__)
+# Add a console handler to Flask's logger if not already present
+if not app.logger.handlers:
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    ))
+    app.logger.addHandler(console_handler)
 
 # Handle both SQLite (dev) and PostgreSQL (production)
 db_uri = os.getenv('SQLALCHEMY_DATABASE_URI', 'sqlite:///readingnook.db')
@@ -99,7 +102,7 @@ class User(UserMixin, db.Model):
             return False
         except InvalidHashError as e:
             # Unexpected: hash is corrupted or from different algorithm
-            logger.warning(f'Invalid password hash for user {self.username}: {str(e)}')
+            app.logger.warning(f'Invalid password hash for user {self.username}: {str(e)}')
             return False
     
     def __repr__(self):
