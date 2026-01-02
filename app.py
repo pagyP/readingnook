@@ -139,7 +139,9 @@ class User(UserMixin, db.Model):
             return False
         except InvalidHashError as e:
             # Unexpected: hash is corrupted or from different algorithm
-            app.logger.warning(f'Invalid password hash for user {self.username}: {str(e)}')
+            # Log generic message without exception details to avoid exposing
+            # sensitive information about hash format or validation process
+            app.logger.warning(f'Invalid password hash format for user {self.username}')
             return False
     
     def __repr__(self):
