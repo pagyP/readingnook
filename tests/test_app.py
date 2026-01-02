@@ -1,5 +1,5 @@
 import pytest
-from app import app, db, User, Book
+from app import app, db, User, Book, configure_logging
 from datetime import datetime
 
 
@@ -11,6 +11,10 @@ def client():
     app.config['RATELIMIT_ENABLED'] = False
     app.config['WTF_CSRF_ENABLED'] = False
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db'
+    
+    # Reconfigure logging after setting TESTING flag
+    # This ensures the logger respects the TESTING configuration
+    configure_logging(app)
     
     # Setup database
     with app.app_context():
@@ -421,3 +425,32 @@ class TestPasswordSecurity:
         
         assert user.check_password('correctpassword') is True
         assert user.check_password('wrongpassword') is False
+    
+    def test_password_check_with_corrupted_hash(self, caplog):
+        """Test that corrupted/invalid hash is handled gracefully with logging.
+        
+        This ensures that if a password hash is corrupted or in an invalid format
+        (e.g., from database corruption or migration issues), the check_password
+        method returns False and logs a warning instead of crashing.
+        """
+        import logging
+        
+        user = User(username='corrupteduser', email='corrupted@example.com')
+        user.set_password('validpassword')
+        
+        # Verify password works normally first
+        assert user.check_password('validpassword') is True
+        
+        # Simulate corrupted/invalid hash (not a valid Argon2 format)
+        user.password_hash = 'invalid_corrupted_hash_format'
+        
+        # Capture logs to verify warning is logged
+        with caplog.at_level(logging.WARNING):
+            result = user.check_password('anypassword')
+        
+        # Should return False instead of raising an exception
+        assert result is False
+        
+        # Should have logged a warning about invalid hash
+        assert any('Invalid password hash' in record.message for record in caplog.records)
+        assert any('corrupteduser' in record.message for record in caplog.records)

@@ -4,17 +4,45 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, IntegerField, SelectField
 from wtforms.validators import DataRequired, Email, EqualTo, ValidationError, Length, Regexp, NumberRange, Optional
-from werkzeug.security import generate_password_hash, check_password_hash
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError, InvalidHashError
 from datetime import datetime, timezone
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import os
 import re
+import logging
 from dotenv import load_dotenv
 
 load_dotenv()
 
+# Create Flask app
 app = Flask(__name__)
+
+# Logging configuration function
+def configure_logging(flask_app):
+    """Configure Flask's built-in logger for security events.
+    
+    This function should be called after the app is fully configured
+    to ensure the TESTING and DEBUG flags are properly respected.
+    
+    Args:
+        flask_app: The Flask application instance
+    """
+    # Set logging level based on current configuration
+    if flask_app.config.get('TESTING') or flask_app.config.get('DEBUG'):
+        flask_app.logger.setLevel(logging.DEBUG)
+    else:
+        flask_app.logger.setLevel(logging.WARNING)
+    
+    # Add console handler if not already present
+    if not flask_app.logger.handlers:
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        ))
+        flask_app.logger.addHandler(console_handler)
+
 # Handle both SQLite (dev) and PostgreSQL (production)
 db_uri = os.getenv('SQLALCHEMY_DATABASE_URI', 'sqlite:///readingnook.db')
 # Convert old postgresql:// to postgresql+psycopg:// for psycopg3
@@ -31,10 +59,42 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['PERMANENT_SESSION_LIFETIME'] = 24 * 60 * 60  # 24 hours
 
+# Configure logging after all configuration is set
+configure_logging(app)
+
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Please log in to access this page.'
+
+# Argon2 password hasher configuration
+# Parameters explicitly set for consistency and future tunability
+# 
+# Security rationale for a personal use application:
+# - time_cost=3: Number of iterations. 3 is the minimum and still provides
+#   good security (~100-200ms per hash). For personal use, this is acceptable.
+#   For high-volume production, consider increasing to 4-5.
+#
+# - memory_cost=65536: Memory usage in KB (65 MB). High memory cost makes GPU
+#   attacks impractical. 65 MB per hash is substantial and sufficient for this
+#   application's threat model.
+#
+# - parallelism=4: Number of parallel threads. Matches typical multi-core CPUs.
+#   Increases memory pressure during hashing, improving attack resistance.
+#
+# These parameters can be tuned as security requirements evolve:
+# - Increase time_cost/memory_cost if GPUs become more common attackers
+# - Decrease time_cost if performance becomes a bottleneck (e.g., high user load)
+# - Adjust parallelism based on server CPU cores
+#
+# Reference: OWASP Password Storage Cheat Sheet recommends these parameter ranges
+password_hasher = PasswordHasher(
+    time_cost=3,          # iterations
+    memory_cost=65536,    # 65 MB
+    parallelism=4,        # threads
+    hash_len=32,          # hash length in bytes
+    salt_len=16,          # salt length in bytes
+)
 
 # Rate limiter for security (disabled in testing)
 def limiter_enabled():
@@ -58,10 +118,31 @@ class User(UserMixin, db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     
     def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
+        """Hash password using Argon2 (memory-hard, GPU-resistant)"""
+        self.password_hash = password_hasher.hash(password)
     
     def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
+        """Verify password against Argon2 hash
+        
+        Returns:
+            True if password matches, False otherwise
+            
+        Handles:
+            - VerifyMismatchError: Password doesn't match (expected during failed login)
+            - InvalidHashError: Hash is malformed or from different algorithm (logs warning)
+        """
+        try:
+            password_hasher.verify(self.password_hash, password)
+            return True
+        except VerifyMismatchError:
+            # Expected: password doesn't match
+            return False
+        except InvalidHashError as e:
+            # Unexpected: hash is corrupted or from different algorithm
+            # Log generic message without exception details to avoid exposing
+            # sensitive information about hash format or validation process
+            app.logger.warning(f'Invalid password hash format for user {self.username}')
+            return False
     
     def __repr__(self):
         return f'<User {self.username}>'
@@ -187,6 +268,7 @@ def register():
         user.set_password(form.password.data)
         db.session.add(user)
         db.session.commit()
+        app.logger.info(f'New user account created: {user.username}')
         flash('Account created successfully! Please log in.', 'success')
         return redirect(url_for('login'))
     
@@ -204,9 +286,12 @@ def login():
         
         if user and user.check_password(form.password.data):
             login_user(user)
+            app.logger.info(f'User logged in successfully: {user.username}')
             flash(f'Welcome back, {user.username}!', 'success')
             return redirect(url_for('index'))
         else:
+            # Log failed attempt with email (no password) for security monitoring
+            app.logger.warning(f'Failed login attempt for email: {form.email.data}')
             flash('Invalid email or password.', 'error')
     
     return render_template('login.html', form=form)
@@ -214,7 +299,9 @@ def login():
 @app.route('/logout')
 @login_required
 def logout():
+    username = current_user.username
     logout_user()
+    app.logger.info(f'User logged out: {username}')
     flash('You have been logged out.', 'success')
     return redirect(url_for('login'))
 @app.route('/')
