@@ -67,8 +67,34 @@ login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Please log in to access this page.'
 
-# Argon2 password hasher
-password_hasher = PasswordHasher()
+# Argon2 password hasher configuration
+# Parameters explicitly set for consistency and future tunability
+# 
+# Security rationale for a personal use application:
+# - time_cost=3: Number of iterations. 3 is the minimum and still provides
+#   good security (~100-200ms per hash). For personal use, this is acceptable.
+#   For high-volume production, consider increasing to 4-5.
+#
+# - memory_cost=65536: Memory usage in KB (65 MB). High memory cost makes GPU
+#   attacks impractical. 65 MB per hash is substantial and sufficient for this
+#   application's threat model.
+#
+# - parallelism=4: Number of parallel threads. Matches typical multi-core CPUs.
+#   Increases memory pressure during hashing, improving attack resistance.
+#
+# These parameters can be tuned as security requirements evolve:
+# - Increase time_cost/memory_cost if GPUs become more common attackers
+# - Decrease time_cost if performance becomes a bottleneck (e.g., high user load)
+# - Adjust parallelism based on server CPU cores
+#
+# Reference: OWASP Password Storage Cheat Sheet recommends these parameter ranges
+password_hasher = PasswordHasher(
+    time_cost=3,          # iterations
+    memory_cost=65536,    # 65 MB
+    parallelism=4,        # threads
+    hash_len=32,          # hash length in bytes
+    salt_len=16,          # salt length in bytes
+)
 
 # Rate limiter for security (disabled in testing)
 def limiter_enabled():
