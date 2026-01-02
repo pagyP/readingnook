@@ -268,6 +268,7 @@ def register():
         user.set_password(form.password.data)
         db.session.add(user)
         db.session.commit()
+        app.logger.info(f'New user account created: {user.username}')
         flash('Account created successfully! Please log in.', 'success')
         return redirect(url_for('login'))
     
@@ -285,9 +286,12 @@ def login():
         
         if user and user.check_password(form.password.data):
             login_user(user)
+            app.logger.info(f'User logged in successfully: {user.username}')
             flash(f'Welcome back, {user.username}!', 'success')
             return redirect(url_for('index'))
         else:
+            # Log failed attempt with email (no password) for security monitoring
+            app.logger.warning(f'Failed login attempt for email: {form.email.data}')
             flash('Invalid email or password.', 'error')
     
     return render_template('login.html', form=form)
@@ -295,7 +299,9 @@ def login():
 @app.route('/logout')
 @login_required
 def logout():
+    username = current_user.username
     logout_user()
+    app.logger.info(f'User logged out: {username}')
     flash('You have been logged out.', 'success')
     return redirect(url_for('login'))
 @app.route('/')
