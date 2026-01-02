@@ -38,7 +38,7 @@ services:
     networks:
       - readingnook_network
     restart: unless-stopped
-    command: sh -c "python -c 'from app import app, db; app.app_context().push(); db.create_all()' && gunicorn --bind 0.0.0.0:8000 --workers 4 --timeout 60 --access-logfile - --error-logfile - app:app"
+    command: sh -c "python /app/init_db.py && gunicorn --bind 0.0.0.0:8000 --workers 4 --timeout 60 --access-logfile - --error-logfile - app:app"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request, sys; urllib.request.urlopen('http://localhost:8000/login', timeout=3)"]
       interval: 10s

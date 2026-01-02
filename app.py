@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from flask_wtf import FlaskForm
@@ -12,6 +12,7 @@ from flask_limiter.util import get_remote_address
 import os
 import re
 import logging
+import secrets
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -150,6 +151,23 @@ class User(UserMixin, db.Model):
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(User, int(user_id))
+
+class RecoveryCode(db.Model):
+    """Recovery codes for account password recovery (no email required)
+    
+    Each recovery code is single-use and hashed for security.
+    Users can use any code during password recovery.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    code_hash = db.Column(db.String(255), nullable=False)  # Argon2 hash
+    used = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    used_at = db.Column(db.DateTime)
+    
+    def __repr__(self):
+        return f'<RecoveryCode user_id={self.user_id}>'
+
 class Book(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(255), nullable=False)
@@ -197,6 +215,34 @@ def password_strength(form, field):
         raise ValidationError('Password must contain at least one number.')
     if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
         raise ValidationError('Password must contain at least one special character (!@#$%^&*(),.?":{}|<>).')
+
+def generate_recovery_codes(user_id, count=8):
+    """Generate recovery codes for a user.
+    
+    Args:
+        user_id: User ID to generate codes for
+        count: Number of codes to generate (default 8)
+    
+    Returns:
+        List of plain-text recovery codes for display to user
+    """
+    plain_codes = []
+    
+    for _ in range(count):
+        # Generate code in format: ABC1-2345 (4 chars - 4 chars, uppercase alphanumeric)
+        part1 = secrets.token_hex(2).upper()[:4]  # 4 hex chars = 4 alphanumeric
+        part2 = secrets.token_hex(2).upper()[:4]
+        plain_code = f"{part1}-{part2}"
+        
+        # Hash the code for secure storage
+        code_hash = password_hasher.hash(plain_code)
+        
+        recovery_code = RecoveryCode(user_id=user_id, code_hash=code_hash)
+        db.session.add(recovery_code)
+        plain_codes.append(plain_code)
+    
+    db.session.commit()
+    return plain_codes
 
 # Forms
 class RegistrationForm(FlaskForm):
@@ -256,6 +302,25 @@ class BookForm(FlaskForm):
     date_read = StringField('Date Read')
     submit = SubmitField('Save Book')
 
+class RecoverAccountForm(FlaskForm):
+    """Form to initiate account recovery using email and recovery code"""
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    recovery_code = StringField('Recovery Code', validators=[
+        DataRequired(),
+        Length(min=9, max=9, message='Recovery code must be in format: XXXX-XXXX')
+    ])
+    submit = SubmitField('Verify Code')
+
+class ResetPasswordForm(FlaskForm):
+    """Form to reset password after recovery code verification"""
+    password = PasswordField('New Password', validators=[
+        DataRequired(),
+        password_strength
+    ])
+    confirm_password = PasswordField('Confirm Password', 
+                                    validators=[DataRequired(), EqualTo('password')])
+    submit = SubmitField('Reset Password')
+
 # Routes
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -268,11 +333,22 @@ def register():
         user.set_password(form.password.data)
         db.session.add(user)
         db.session.commit()
+        
+        # Generate recovery codes for new user
+        recovery_codes = generate_recovery_codes(user.id, count=8)
+        
+        # Store codes in session temporarily (will be displayed once then cleared)
+        session['recovery_codes'] = recovery_codes
+        session['recovery_user_id'] = user.id
+        
         app.logger.info(f'New user account created: {user.username}')
-        flash('Account created successfully! Please log in.', 'success')
-        return redirect(url_for('login'))
+        flash('Account created successfully! Save your recovery codes and then log in.', 'success')
+        
+        # Redirect to recovery codes display page
+        return redirect(url_for('show_recovery_codes'))
     
     return render_template('register.html', form=form)
+
 
 @app.route('/login', methods=['GET', 'POST'])
 @limiter.limit("5 per minute")
@@ -304,6 +380,106 @@ def logout():
     app.logger.info(f'User logged out: {username}')
     flash('You have been logged out.', 'success')
     return redirect(url_for('login'))
+
+@app.route('/recovery-codes')
+def show_recovery_codes():
+    """Display recovery codes to user immediately after account creation.
+    
+    Security: This page is only accessible immediately after registration
+    and the codes are stored in the session (temporary). User should save these codes now.
+    Codes are cleared from session once displayed.
+    """
+    # Check if codes are in session (should only be there right after registration)
+    if 'recovery_codes' not in session:
+        flash('Recovery codes not found. Please log in.', 'info')
+        return redirect(url_for('login'))
+    
+    codes = session.pop('recovery_codes')  # Remove from session after reading
+    user_id = session.pop('recovery_user_id', None)
+    
+    user = db.session.get(User, user_id) if user_id else None
+    if not user:
+        flash('User not found.', 'error')
+        return redirect(url_for('login'))
+    
+    return render_template('recovery_codes.html', user=user, codes=codes)
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    """Initiate password recovery using email and recovery code"""
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
+    form = RecoverAccountForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(email=form.email.data).first()
+        
+        if not user:
+            # Don't reveal if email exists (security best practice)
+            app.logger.warning(f'Recovery attempt for non-existent email: {form.email.data}')
+            flash('If that email exists, a password reset link will be sent.', 'info')
+            return redirect(url_for('login'))
+        
+        # Get all unused recovery codes for this user
+        recovery_codes = RecoveryCode.query.filter_by(
+            user_id=user.id,
+            used=False
+        ).all()
+        
+        if not recovery_codes:
+            app.logger.warning(f'Recovery attempt with no available codes for user: {user.username}')
+            flash('No available recovery codes. Please contact support.', 'error')
+            return redirect(url_for('login'))
+        
+        # Check if provided code matches any unused code
+        matching_code = None
+        for recovery_code in recovery_codes:
+            try:
+                password_hasher.verify(recovery_code.code_hash, form.recovery_code.data)
+                matching_code = recovery_code
+                break
+            except (VerifyMismatchError, InvalidHashError):
+                continue
+        
+        if not matching_code:
+            app.logger.warning(f'Invalid recovery code attempt for user: {user.username}')
+            flash('Invalid recovery code.', 'error')
+            return redirect(url_for('forgot_password'))
+        
+        # Store user ID in session for reset password page
+        # In production, you'd want to use a more secure token mechanism
+        app.logger.info(f'User verified recovery code: {user.username}')
+        return redirect(url_for('reset_password', user_id=user.id, code_id=matching_code.id))
+    
+    return render_template('forgot_password.html', form=form)
+
+@app.route('/reset-password/<int:user_id>/<int:code_id>', methods=['GET', 'POST'])
+def reset_password(user_id, code_id):
+    """Reset password after recovery code verification"""
+    user = db.session.get(User, user_id)
+    recovery_code = db.session.get(RecoveryCode, code_id)
+    
+    if not user or not recovery_code:
+        flash('Invalid reset link.', 'error')
+        return redirect(url_for('login'))
+    
+    if recovery_code.user_id != user.id or recovery_code.used:
+        flash('This recovery code has already been used.', 'error')
+        return redirect(url_for('login'))
+    
+    form = ResetPasswordForm()
+    if form.validate_on_submit():
+        user.set_password(form.password.data)
+        recovery_code.used = True
+        recovery_code.used_at = datetime.now(timezone.utc)
+        db.session.commit()
+        
+        app.logger.info(f'Password reset via recovery code: {user.username}')
+        flash('Password reset successfully! Please log in with your new password.', 'success')
+        return redirect(url_for('login'))
+    
+    return render_template('reset_password.html', form=form, user=user)
+
 @app.route('/')
 @login_required
 def index():
