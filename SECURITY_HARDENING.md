@@ -276,7 +276,131 @@ This implementation follows NIST SP 800-63B-3 recommendations:
 
 ---
 
-## Related Documentation
+## 4. Server-Side Cache for Recovery Code Display
+
+### Vulnerability Fixed
+
+**Previous Implementation (❌ Vulnerable to Session Compromise)**
+```python
+session['recovery_codes'] = [plain_text_code1, plain_text_code2, ...]
+```
+
+**Problem**:
+- All 8 recovery codes stored as plain text in session
+- Session encrypted with SECRET_KEY but still a single compromise point
+- If session is compromised (XSS, fixation, SECRET_KEY leak), all codes exposed at once
+- Codes visible in session data if inspected during storage/transmission
+
+### New Implementation (✅ Minimal Session Exposure)
+```python
+# Generate server-side cache entry
+display_token = generate_recovery_code_display_token(user.id, recovery_codes)
+# Only store token reference in session (not codes)
+session['recovery_code_token'] = display_token
+```
+
+### How It Works
+
+1. **Registration**: Generate 8 recovery codes
+2. **Server Cache**: Store codes in server-side dictionary with:
+   - 5-minute expiration
+   - One-time access (removed after viewing)
+   - User ID for verification
+3. **Session**: Only store a reference token (unguessable random string)
+4. **Display**: Retrieve codes from cache using token, then clear cache entry
+
+### Security Properties
+
+| Property | Previous | New |
+|---|---|---|
+| **Data in Session** | 8 plain-text codes | 1 reference token |
+| **Exposure on Compromise** | 8 codes + potential for reuse | Just a token (useless after view) |
+| **Expiration** | Until session clears | 5 minutes maximum |
+| **Access Pattern** | Multiple potential accesses | One-time use only |
+| **Memory Requirement** | Per session | Per cache entry (auto-cleanup) |
+
+### Attack Scenarios Mitigated
+
+1. **Session Cookie Compromise**:
+   - Old: Attacker gets all 8 codes immediately
+   - New: Attacker gets only a token, useless without server-side cache
+
+2. **Session Fixation**:
+   - Old: Attacker reuses session to access codes repeatedly
+   - New: Token is one-time use, codes removed after first view
+
+3. **XSS Attack**:
+   - Old: JavaScript can exfil session containing all codes
+   - New: Token alone provides minimal attack surface
+
+4. **SECRET_KEY Compromise**:
+   - Old: All historical session codes could be decrypted
+   - New: Cache is ephemeral, not encrypted with SECRET_KEY
+
+### Implementation Details
+
+```python
+recovery_code_cache = {}  # Server-side dict, not persisted
+
+def generate_recovery_code_display_token(user_id, recovery_codes):
+    """Store codes in cache, return reference token"""
+    token = secrets.token_urlsafe(32)  # Unguessable random token
+    recovery_code_cache[token] = {
+        'user_id': user_id,
+        'codes': recovery_codes,
+        'created_at': datetime.now(timezone.utc),
+        'expires_at': datetime.now(timezone.utc) + timedelta(minutes=5)
+    }
+    return token
+
+def get_recovery_codes_from_cache(token):
+    """Retrieve codes from cache and remove (one-time use)"""
+    if token not in recovery_code_cache:
+        return None, None
+    
+    cache_entry = recovery_code_cache[token]
+    
+    # Check expiration
+    if datetime.now(timezone.utc) > cache_entry['expires_at']:
+        del recovery_code_cache[token]
+        return None, None
+    
+    # Remove after reading (one-time)
+    del recovery_code_cache[token]
+    return cache_entry['user_id'], cache_entry['codes']
+```
+
+### Cache Cleanup
+
+Expired cache entries are cleaned up:
+1. **On registration**: `cleanup_expired_recovery_codes()`
+2. **On display**: Expired entries removed when accessed
+3. **Auto-cleanup**: 5-minute TTL prevents unbounded memory growth
+
+### Production Considerations
+
+**For Scaling Beyond Single Instance:**
+If running multiple server instances, replace dict with distributed cache:
+- Redis: Fast, ephemeral cache, perfect for this use case
+- Memcached: Similar alternative
+- Implementation: Change `recovery_code_cache` to Redis client
+
+```python
+# Example Redis integration (production)
+import redis
+cache = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+
+def generate_recovery_code_display_token(user_id, recovery_codes):
+    token = secrets.token_urlsafe(32)
+    cache.setex(
+        f"recovery_codes:{token}",
+        300,  # 5 minutes
+        json.dumps({'user_id': user_id, 'codes': recovery_codes})
+    )
+    return token
+```
+
+---
 
 - [RECOVERY_CODES.md](RECOVERY_CODES.md) - Recovery code implementation details
 - [OWASP Account Recovery Guidelines](https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html)
