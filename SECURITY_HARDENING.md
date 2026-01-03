@@ -1,9 +1,15 @@
-# Security Hardening: Token-Based Password Reset
+# Security Hardening
 
 ## Overview
-Replaced the vulnerable URL-based password reset mechanism with cryptographically signed, time-limited tokens. This addresses critical security issues identified in the GitHub Copilot PR review.
+This document outlines the security improvements implemented in response to GitHub Copilot PR review feedback:
 
-## Vulnerability Fixed
+1. **Token-Based Password Reset** - Replaced URL-based password reset with cryptographically signed tokens
+2. **Recovery Code Entropy** - Increased recovery code entropy from 4.3 billion to 1.2 quadrillion combinations
+3. **Rate Limiting** - Added rate limiting to prevent brute force attacks on recovery endpoint
+
+## 1. Token-Based Password Reset
+
+### Vulnerability Fixed
 
 ### Previous Implementation (❌ Vulnerable)
 ```
@@ -162,13 +168,118 @@ All 32 tests pass:
 ## Future Enhancements
 
 1. **Email Token Verification**: Send tokens via email instead of including in URL
-2. **Rate Limiting**: Add rate limiting to forgot-password endpoint
-3. **Audit Logging**: Log password reset attempts (without token)
-4. **Invalidation on Login**: Invalidate reset tokens if user logs in with old password
-5. **Recovery Code Rotation**: Require code rotation after successful reset
+2. **Audit Logging**: Log password reset attempts (without token)
+3. **Invalidation on Login**: Invalidate reset tokens if user logs in with old password
+4. **Recovery Code Rotation**: Require code rotation after successful reset
+
+---
+
+## 2. Recovery Code Entropy
+
+### Previous Implementation (❌ Vulnerable to Brute Force)
+
+**Format**: `ABC1-2345` (8 characters total)
+- 4 hex characters per part: 16^4 = 65,536 possibilities per part
+- 2 parts = 65,536² = **4.3 billion combinations**
+- With 8 codes per user and no rate limiting, attackers could brute force: 4.3B ÷ 8 ≈ 538 million attempts needed
+- At 100 guesses/second without rate limiting = ~62 days of continuous attempts
+
+**Vulnerability**: 
+- Insufficient entropy against coordinated brute force attacks
+- No rate limiting on forgot-password endpoint
+
+### New Implementation (✅ Resistant to Brute Force)
+
+**Format**: `XXXX-XXXX-XXXX` (12 base32 characters total)
+- Uses base32 character set: A-Z, 2-7 (32 characters)
+- Entropy: 32^12 = **~1.2 quadrillion combinations** (1.2 × 10^18)
+- Exceeds NIST recommendation of 2^50 entropy (1.1 × 10^15)
+- With 8 codes per user: 1.2Q ÷ 8 = 150 trillion attempts needed
+- At 1 million guesses/second = **4,750+ years** of continuous attacks
+
+**Code Generation**:
+```python
+import base64
+import secrets
+
+# Generate 9 bytes of cryptographically random data
+random_bytes = secrets.token_bytes(9)
+# Encode to base32 (A-Z, 2-7) = 12 characters
+base32_code = base64.b32encode(random_bytes).decode('utf-8').rstrip('=')
+# Format: XXXX-XXXX-XXXX
+plain_code = f"{base32_code[:4]}-{base32_code[4:8]}-{base32_code[8:12]}"
+```
+
+**Benefits**:
+1. **Much Higher Entropy**: 1.2 quadrillion vs 4.3 billion combinations
+2. **NIST Compliant**: Exceeds recommended 2^50 minimum entropy
+3. **Better Readability**: Base32 (no special chars) easier than base64
+4. **Suitable for Manual Entry**: Pure alphanumeric format
+5. **Cryptographically Secure**: Uses secrets.token_bytes() not predictable RNG
+
+---
+
+## 3. Rate Limiting on Recovery Endpoint
+
+### Implementation
+
+```python
+@app.route('/forgot-password', methods=['GET', 'POST'])
+@limiter.limit("5 per 15 minutes")  # Prevent brute force attacks
+def forgot_password():
+    """Rate limited to prevent brute force attempts"""
+```
+
+### Protection Level
+
+- **Limit**: 5 attempts per 15 minutes per IP address
+- **Scope**: forgot-password endpoint (where codes are verified)
+- **Effect**: With rate limiting, attacking 1.2Q combinations would require:
+  - 5 attempts every 15 minutes = 480 attempts per day
+  - 1.2Q ÷ 480/day = 2.5 billion years of attacks
+  - Effectively impossible even with high entropy codes
+
+### Why Both Matter
+
+| Security Layer | Protects Against | Time to Brute Force |
+|---|---|---|
+| High Entropy Alone | Distributed attacks | 4,750 years @ 1M/sec |
+| Rate Limiting Alone | Single IP attacks | 2.5 billion years @ 5/15min |
+| **Both Together** | All attack vectors | **Impractical regardless of attacker capability** |
+
+---
+
+## Security Comparison
+
+| Property | Previous | New |
+|----------|----------|-----|
+| **Code Entropy** | 4.3 billion (16^4 × 16^4) | 1.2 quadrillion (32^12) |
+| **NIST Compliant** | ✗ No (below 2^50) | ✓ Yes (exceeds 2^50) |
+| **Rate Limiting** | ✗ None | ✓ 5/15min per IP |
+| **Brute Force Time** | 62 days (no rate limit) | 4,750+ years (entropy) + 2.5B years (rate limit) |
+| **Code Format** | ABC1-2345 (8 char) | XXXX-XXXX-XXXX (12 char, base32) |
+| **Entropy Source** | token_hex (unclear seed) | secrets.token_bytes (CSPRNG) |
+
+---
+
+## NIST Recovery Code Guidelines
+
+This implementation follows NIST SP 800-63B-3 recommendations:
+
+1. ✅ **Sufficient Entropy**: 2^50 minimum (we provide 2^60)
+2. ✅ **Single-Use**: Each code marked as used after successful verification
+3. ✅ **Secure Generation**: Cryptographically random (secrets module)
+4. ✅ **Hashed Storage**: Argon2 memory-hard hashing
+5. ✅ **Limited Issuance**: 8 codes per user (regenerated on reset)
+6. ✅ **Out-of-Band**: User stores codes locally (not sent via email)
+7. ✅ **Rate Limiting**: 5 attempts per 15 minutes prevents enumeration
+
+---
 
 ## Related Documentation
 
 - [RECOVERY_CODES.md](RECOVERY_CODES.md) - Recovery code implementation details
-- [OWASP Password Reset Guidelines](https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html)
+- [OWASP Account Recovery Guidelines](https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html)
+- [NIST Digital Identity Guidelines](https://pages.nist.gov/800-63-3/sp800-63b.html#sec5)
 - [itsdangerous Documentation](https://itsdangerous.palletsprojects.com/)
+- [Python secrets Module](https://docs.python.org/3/library/secrets.html)

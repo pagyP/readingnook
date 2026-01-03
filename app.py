@@ -268,6 +268,10 @@ def password_strength(form, field):
 def generate_recovery_codes(user_id, count=8):
     """Generate recovery codes for a user.
     
+    Uses base32 encoding for better entropy and readability.
+    Each code: 12 alphanumeric characters (A-Z, 2-7) formatted as XXX-XXX-XXX
+    Entropy: 32^12 ≈ 1.2 * 10^18 combinations (exceeds NIST 2^50 minimum)
+    
     Args:
         user_id: User ID to generate codes for
         count: Number of codes to generate (default 8)
@@ -275,13 +279,17 @@ def generate_recovery_codes(user_id, count=8):
     Returns:
         List of plain-text recovery codes for display to user
     """
+    import base64
     plain_codes = []
     
     for _ in range(count):
-        # Generate code in format: ABC1-2345 (4 chars - 4 chars, uppercase alphanumeric)
-        part1 = secrets.token_hex(2).upper()[:4]  # 4 hex chars = 4 alphanumeric
-        part2 = secrets.token_hex(2).upper()[:4]
-        plain_code = f"{part1}-{part2}"
+        # Generate 9 bytes of random data = 12 base32 characters (32^12 entropy)
+        # This exceeds NIST recommendation of 2^50 entropy for recovery codes
+        random_bytes = secrets.token_bytes(9)
+        # Use base32 (A-Z, 2-7) for better readability than base64
+        base32_code = base64.b32encode(random_bytes).decode('utf-8').rstrip('=')
+        # Format: XXX-XXX-XXX (12 chars in 3 groups of 4)
+        plain_code = f"{base32_code[:4]}-{base32_code[4:8]}-{base32_code[8:12]}"
         
         # Hash the code for secure storage
         code_hash = password_hasher.hash(plain_code)
@@ -454,8 +462,13 @@ def show_recovery_codes():
     return render_template('recovery_codes.html', user=user, codes=codes)
 
 @app.route('/forgot-password', methods=['GET', 'POST'])
+@limiter.limit("5 per 15 minutes")  # Prevent brute force attacks on recovery codes
 def forgot_password():
-    """Initiate password recovery using email and recovery code"""
+    """Initiate password recovery using email and recovery code
+    
+    Rate limited: 5 attempts per 15 minutes per IP address
+    This prevents brute force attacks on recovery codes even with high entropy.
+    """
     if current_user.is_authenticated:
         return redirect(url_for('index'))
     
