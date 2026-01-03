@@ -631,3 +631,37 @@ class TestRecoveryCodes:
         assert response.status_code == 200
         # Should fail because code is invalid for this user
         assert b'error' in response.data.lower() or b'invalid' in response.data.lower()
+    
+    def test_registration_rollback_on_recovery_code_generation_failure(self, client, monkeypatch):
+        """Test that user account is rolled back if recovery code generation fails.
+        
+        Ensures atomicity: if recovery code generation fails, the entire registration
+        is rolled back and no user is created (no race condition).
+        """
+        # Simulate recovery code generation failure
+        def mock_generate_recovery_codes_fail(*args, **kwargs):
+            raise Exception("Simulated recovery code generation failure")
+        
+        monkeypatch.setattr('app.generate_recovery_codes', mock_generate_recovery_codes_fail)
+        
+        # Attempt registration
+        response = client.post('/register', data={
+            'username': 'rollbacktest',
+            'email': 'rollback@example.com',
+            'password': 'ValidPass123!',
+            'confirm_password': 'ValidPass123!'
+        }, follow_redirects=True)
+        
+        # Should show error message
+        assert response.status_code == 200
+        assert b'Registration failed' in response.data
+        
+        # Most importantly: user should NOT be created in database
+        # Use app context because test may run outside of request context
+        with app.app_context():
+            user = User.query.filter_by(email='rollback@example.com').first()
+            assert user is None, "User should not be created if recovery code generation fails"
+            
+            # Verify no orphaned user account exists
+            all_users = User.query.all()
+            assert all(u.email != 'rollback@example.com' for u in all_users)
