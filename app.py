@@ -436,7 +436,7 @@ class RecoverAccountForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired(), Email()])
     recovery_code = StringField('Recovery Code', validators=[
         DataRequired(),
-        Length(min=9, max=9, message='Recovery code must be in format: XXXX-XXXX')
+        Length(min=14, max=14, message='Recovery code must be in format: XXXX-XXXX-XXXX')
     ])
     submit = SubmitField('Verify Code')
 
