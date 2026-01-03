@@ -19,7 +19,7 @@ Reading Nook supports account recovery using **recovery codes**. This is a passw
 4. The recovery code is marked as used and cannot be reused
 
 ### Code Format
-- Recovery codes use format: `XXXX-XXXX` (8 alphanumeric characters)
+- Recovery codes use format: `XXXX-XXXX` (8 hexadecimal characters separated by a hyphen)
 - Example: `A1B2-C3D4`
 - All 8 codes are valid for recovery - use any one you have
 
