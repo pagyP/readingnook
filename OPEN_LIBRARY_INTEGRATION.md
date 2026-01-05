@@ -107,16 +107,37 @@ ERROR: Open Library API request error: <details>
 - Subject/genre categorization is Open Library's classification (may differ from user preference)
 - Cover image availability depends on Open Library's cover archive
 
+## Features
+
+### ✅ Book Cover Display (Completed)
+
+Book covers are now displayed in multiple places:
+
+- **ISBN Lookup Preview**: When you look up a book by ISBN, the cover image appears in the form
+- **Book Collection**: All books in your collection display cover images on their cards (with a 📖 placeholder for books without covers)
+- **Database Storage**: Cover URLs are stored alongside each book for quick access
+
+**How It Works:**
+1. Open Library Search API returns a `cover_i` (image ID) for books with covers
+2. The ID is converted to a full CDN URL: `https://covers.openlibrary.org/b/id/{cover_i}-M.jpg`
+3. The URL is stored in the database and displayed on book cards
+4. If a cover is unavailable, a stylish gradient placeholder with 📖 is shown
+
+**Example:**
+- ISBN: `9780743273565` (The Great Gatsby)
+- Cover ID: `10590366`
+- Cover URL: `https://covers.openlibrary.org/b/id/10590366-M.jpg`
+
 ## Future Enhancements
 
 Possible improvements:
 
-1. **Cover Display**: Show fetched book cover in the form preview
-2. **Multiple Results**: If multiple editions found, let user select which one
-3. **Rating Integration**: Fetch average rating from Open Library  
-4. **Description/Summary**: Auto-populate book description/synopsis
-5. **Publish Date**: Extract publication date automatically
-6. **Publisher**: Add publisher information
+1. **Multiple Results**: If multiple editions found, let user select which one
+2. **Rating Integration**: Fetch average rating from Open Library  
+3. **Description/Summary**: Auto-populate book description/synopsis
+4. **Publish Date**: Extract publication date automatically
+5. **Publisher**: Add publisher information
+6. **Larger Cover View**: Display full-size cover on book detail page
 
 ## References
 

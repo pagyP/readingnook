@@ -375,6 +375,7 @@ class Book(db.Model):
     date_read = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     rating = db.Column(db.Integer)  # 1-5 stars
     notes = db.Column(db.Text)
+    cover_url = db.Column(db.String(500))  # Open Library cover image URL
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     
     def __repr__(self):
@@ -816,6 +817,9 @@ def add_book():
                 except ValueError:
                     date_read = None
             
+            # Get cover_url from form data if provided (from ISBN lookup)
+            cover_url = request.form.get('cover_url', '').strip() or None
+            
             book = Book(
                 title=form.title.data,
                 author=form.author.data,
@@ -825,6 +829,7 @@ def add_book():
                 rating=form.rating.data or None,
                 notes=form.notes.data or None,
                 date_read=date_read,
+                cover_url=cover_url,
                 user_id=current_user.id
             )
             db.session.add(book)
@@ -859,6 +864,9 @@ def edit_book(id):
                 except ValueError:
                     date_read = book.date_read  # Keep original if parsing fails
             
+            # Get cover_url from form data if provided (from ISBN lookup)
+            cover_url = request.form.get('cover_url', '').strip() or book.cover_url
+            
             book.title = form.title.data
             book.author = form.author.data
             book.isbn = form.isbn.data or None
@@ -866,6 +874,7 @@ def edit_book(id):
             book.format = form.format.data
             book.rating = form.rating.data or None
             book.notes = form.notes.data or None
+            book.cover_url = cover_url
             if date_read:
                 book.date_read = date_read
             db.session.commit()

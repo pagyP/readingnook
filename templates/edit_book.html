@@ -197,6 +197,15 @@
                     </div>
                 {% endif %}
             </div>
+
+            <!-- Book cover preview section -->
+            <div id="coverPreviewSection" class="form-group" style="display: none;">
+                <label>Book Cover</label>
+                <div style="text-align: center;">
+                    <img id="coverPreviewImage" src="" alt="Book cover" style="max-width: 120px; max-height: 200px; border-radius: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                    <input type="hidden" id="coverUrlInput" name="cover_url" value="">
+                </div>
+            </div>
             
             <div class="form-group">
                 <label for="genre">Genre</label>
@@ -313,6 +322,15 @@
             }
             if (bookData.genre) {
                 document.getElementById('genre').value = bookData.genre;
+            }
+            
+            // Display cover image if available
+            if (bookData.cover_url) {
+                document.getElementById('coverPreviewImage').src = bookData.cover_url;
+                document.getElementById('coverUrlInput').value = bookData.cover_url;
+                document.getElementById('coverPreviewSection').style.display = 'block';
+            } else {
+                document.getElementById('coverPreviewSection').style.display = 'none';
             }
             
             // Show success message

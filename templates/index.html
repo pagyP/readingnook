@@ -102,14 +102,85 @@
         background: white;
         border: 1px solid #e0e0e0;
         border-radius: 8px;
-        padding: 20px;
+        padding: 15px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         transition: transform 0.3s, box-shadow 0.3s;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
     }
     
     .book-card:hover {
         transform: translateY(-5px);
         box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Desktop layout: cover on left, content on right */
+    @media (min-width: 768px) {
+        .book-card {
+            flex-direction: row;
+            gap: 15px;
+        }
+
+        .book-card-cover {
+            flex-shrink: 0;
+            width: 120px;
+            height: 180px;
+            margin-bottom: 0;
+        }
+
+        .book-card-cover img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 5px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .book-card-cover-placeholder {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2.5em;
+        }
+
+        .book-card-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+    }
+
+    /* Mobile layout: cover centered at top, content below */
+    @media (max-width: 767px) {
+        .book-card-cover {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .book-card-cover img {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 5px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .book-card-cover-placeholder {
+            width: 100%;
+            height: 200px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 3em;
+        }
     }
     
     .book-card h3 {
@@ -221,40 +292,52 @@
             <div class="books-grid">
                 {% for book in books %}
                     <div class="book-card">
-                        <h3>{{ book.title }}</h3>
-                        <div class="author">by {{ book.author }}</div>
-                        {% if book.isbn %}
-                            <div style="font-size: 0.85em; color: #999; margin-bottom: 8px;">ISBN: {{ book.isbn }}</div>
+                        {% if book.cover_url %}
+                            <div class="book-card-cover">
+                                <img src="{{ book.cover_url }}" alt="{{ book.title }}" onerror="this.parentElement.innerHTML='<div class=&quot;book-card-cover-placeholder&quot;>📖</div>'">
+                            </div>
+                        {% else %}
+                            <div class="book-card-cover">
+                                <div class="book-card-cover-placeholder">📖</div>
+                            </div>
                         {% endif %}
-                        {% if book.genre %}
-                            <div style="font-size: 0.9em; color: #667eea; margin-bottom: 8px; font-weight: 500;">📚 {{ book.genre }}</div>
-                        {% endif %}
-                        <div style="font-size: 0.9em; color: #667eea; margin-bottom: 8px; font-weight: 500;">
-                            {% if book.format == 'ebook' %}
-                                📱 E-book
-                            {% elif book.format == 'audiobook' %}
-                                🎧 Audiobook
-                            {% else %}
-                                📖 Physical Book
+
+                        <div class="book-card-content">
+                            <h3>{{ book.title }}</h3>
+                            <div class="author">by {{ book.author }}</div>
+                            {% if book.isbn %}
+                                <div style="font-size: 0.85em; color: #999; margin-bottom: 8px;">ISBN: {{ book.isbn }}</div>
                             {% endif %}
+                            {% if book.genre %}
+                                <div style="font-size: 0.9em; color: #667eea; margin-bottom: 8px; font-weight: 500;">📚 {{ book.genre }}</div>
+                            {% endif %}
+                            <div style="font-size: 0.9em; color: #667eea; margin-bottom: 8px; font-weight: 500;">
+                                {% if book.format == 'ebook' %}
+                                    📱 E-book
+                                {% elif book.format == 'audiobook' %}
+                                    🎧 Audiobook
+                                {% else %}
+                                    📖 Physical Book
+                                {% endif %}
+                            </div>
+                            <div class="date-read">Read on {{ book.date_read.strftime('%B %d, %Y') }}</div>
+                        
+                            {% if book.rating %}
+                                <div class="rating">
+                                    {% for i in range(book.rating) %}★{% endfor %}{% for i in range(5 - book.rating) %}☆{% endfor %}
+                                </div>
+                            {% endif %}
+                            
+                            {% if book.notes %}
+                                <div class="notes">{{ book.notes }}</div>
+                            {% endif %}
+                            
+                            <div class="book-actions">
+                                <a href="{{ url_for('edit_book', id=book.id) }}" class="btn btn-secondary">Edit</a>
+                                <a href="{{ url_for('delete_book', id=book.id) }}" class="btn btn-danger" onclick="return confirm('Are you sure?')">Delete</a>
+                            </div>
                         </div>
-                        <div class="date-read">Read on {{ book.date_read.strftime('%B %d, %Y') }}</div>
-                    
-                    {% if book.rating %}
-                        <div class="rating">
-                            {% for i in range(book.rating) %}★{% endfor %}{% for i in range(5 - book.rating) %}☆{% endfor %}
-                        </div>
-                    {% endif %}
-                    
-                    {% if book.notes %}
-                        <div class="notes">{{ book.notes }}</div>
-                    {% endif %}
-                    
-                    <div class="book-actions">
-                        <a href="{{ url_for('edit_book', id=book.id) }}" class="btn btn-secondary">Edit</a>
-                        <a href="{{ url_for('delete_book', id=book.id) }}" class="btn btn-danger" onclick="return confirm('Are you sure?')">Delete</a>
                     </div>
-                </div>
             {% endfor %}
             </div>
         {% else %}
