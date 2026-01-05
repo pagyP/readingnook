@@ -64,12 +64,15 @@ A simple Flask web application to track and record the books you've read.
 ## Security Features
 
 ✅ **User Authentication** - Create accounts with secure password hashing  
-✅ **Password Security** - Passwords hashed using Werkzeug's PBKDF2  
+✅ **Password Hashing** - Passwords hashed using Argon2 (memory-hard, GPU-resistant)  
+✅ **Account Recovery** - Recover lost passwords using single-use recovery codes (no email required)  
 ✅ **Session Management** - Secure session handling with Flask-Login  
 ✅ **CSRF Protection** - All forms protected with CSRF tokens via Flask-WTF  
 ✅ **Data Isolation** - Users can only see and edit their own books  
 ✅ **Environment Variables** - Secret key stored in .env (not committed to git)  
-✅ **Form Validation** - Email format and password confirmation validation
+✅ **Form Validation** - Email format and password confirmation validation  
+✅ **Rate Limiting** - Login attempts limited to 5 per minute to prevent brute force  
+✅ **Security Logging** - All authentication events logged for audit trail
 
 ## Project Structure
 
@@ -99,6 +102,14 @@ readingnook/
 2. Enter your email and password
 3. You'll be logged in and can start adding books
 
+### Forgot Your Password?
+1. On the login page, click "Recover your account"
+2. Enter your email address and one of your recovery codes (saved during account creation)
+3. Set a new password
+4. Log in with your new password
+
+**⚠️ Important:** Recovery codes are shown once after account creation. Save them in a secure location (password manager, encrypted note, etc.). See [RECOVERY_CODES.md](RECOVERY_CODES.md) for detailed information.
+
 ### Adding a Book
 1. Click "+ Add Book" in the navigation
 2. Fill in the book details (title and author are required)
@@ -118,23 +129,35 @@ readingnook/
 ### Logging Out
 1. Click "Logout" in the top right navigation
 
+## Documentation
+
+- **[RECOVERY_CODES.md](RECOVERY_CODES.md)** - Complete guide to password recovery using recovery codes
+- **[DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md)** - Docker and production deployment guide
+
 ## Future Enhancements
 
 Consider adding:
 - Book covers/images
 - Genre/categories
 - Reading progress tracking
-- Search and filter functionality
+- Search and filter functionality (✅ Already implemented!)
 - Statistics and reading goals
-- User authentication for multiple readers
-- Export to CSV/PDF
+- Self-service recovery code regeneration
+- Email notifications for security events
+- Book recommendations based on reading history
 
 ## Technologies Used
 
-- **Backend:** Flask (Python web framework)
-- **Database:** SQLite with SQLAlchemy ORM
-- **Frontend:** HTML5, CSS3
-- **Architecture:** Simple MVC pattern
+- **Backend:** Flask 3.1.2 (Python web framework)
+- **Database:** PostgreSQL 18.1 (production), SQLite (development)
+- **ORM:** SQLAlchemy 3.0.5
+- **Authentication:** Flask-Login 0.6.3, Flask-WTF 1.2.1
+- **Password Hashing:** Argon2-cffi 25.1.0 (memory-hard hashing)
+- **Rate Limiting:** Flask-Limiter 4.1.1
+- **Frontend:** HTML5, CSS3 (responsive design)
+- **Testing:** Pytest 7.4.4 (26+ tests)
+- **Containerization:** Docker & Docker Compose
+- **Deployment:** Gunicorn 22.0.0, Nginx
 
 ## License
 

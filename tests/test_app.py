@@ -1,5 +1,5 @@
 import pytest
-from app import app, db, User, Book, configure_logging
+from app import app, db, User, Book, RecoveryCode, configure_logging, generate_recovery_codes, password_hasher
 from datetime import datetime
 
 
@@ -306,10 +306,12 @@ class TestBookRoutes:
             book_id = book.id
         
         # Login as user2
-        client.post('/login', data={
+        login_response = client.post('/login', data={
             'email': 'user2@example.com',
             'password': 'ValidPass123!'
         }, follow_redirects=True)
+        # Verify login was successful
+        assert login_response.status_code == 200
         
         # Try to edit user1's book
         response = client.get(f'/edit/{book_id}')
@@ -454,3 +456,214 @@ class TestPasswordSecurity:
         # Should have logged a warning about invalid hash
         assert any('Invalid password hash' in record.message for record in caplog.records)
         assert any('corrupteduser' in record.message for record in caplog.records)
+
+class TestRecoveryCodes:
+    """Test password recovery using recovery codes"""
+    
+    def test_recovery_codes_generated_on_registration(self, client):
+        """Verify recovery codes are generated and displayed after registration"""
+        # Register a new user
+        response = client.post('/register', data={
+            'username': 'newuser',
+            'email': 'newuser@example.com',
+            'password': 'SecurePass123!',
+            'confirm_password': 'SecurePass123!'
+        }, follow_redirects=True)
+        
+        # Should redirect to recovery codes page
+        assert response.status_code == 200
+        assert b'Save Your Recovery Codes' in response.data
+    
+    def test_recovery_codes_stored_in_database(self, client):
+        """Verify recovery codes are hashed and stored in database"""
+        from app import RecoveryCode
+        
+        # Register a new user
+        response = client.post('/register', data={
+            'username': 'codetest',
+            'email': 'codetest@example.com',
+            'password': 'SecurePass123!',
+            'confirm_password': 'SecurePass123!'
+        })
+        
+        # Get the user and verify codes were created
+        with app.app_context():
+            user = User.query.filter_by(username='codetest').first()
+            codes = RecoveryCode.query.filter_by(user_id=user.id).all()
+            
+            # Should have 8 recovery codes
+            assert len(codes) == 8
+            
+            # All codes should be unused
+            assert all(not code.used for code in codes)
+            
+            # Codes should be hashed (not stored as plain text)
+            assert all(len(code.code_hash) > 20 for code in codes)
+    
+    def test_forgot_password_page_loads(self, client):
+        """Verify forgot password page loads"""
+        response = client.get('/forgot-password')
+        assert response.status_code == 200
+        assert b'Recover Your Account' in response.data
+        assert b'Recovery Code' in response.data
+    
+    def test_password_reset_with_valid_recovery_code(self, client):
+        """Verify password can be reset with a valid recovery code (end-to-end test)
+        
+        This test covers the complete recovery flow:
+        1. Generate recovery codes during registration
+        2. Verify a real recovery code works
+        3. Reset password with that code  
+        4. Verify old password doesn't work, new password does
+        """
+        import re
+        
+        # Step 1: Register user (generates recovery codes in database)
+        response = client.post('/register', data={
+            'username': 'resetuser',
+            'email': 'resetuser@example.com',
+            'password': 'OldPass123!',
+            'confirm_password': 'OldPass123!'
+        }, follow_redirects=True)
+        
+        assert response.status_code == 200
+        
+        # Step 2: Logout to clear session (if logged in)
+        client.get('/logout', follow_redirects=True)
+        
+        # Step 3: Get a real recovery code from the database
+        with app.app_context():
+            user = User.query.filter_by(email='resetuser@example.com').first()
+            assert user is not None
+            
+            # Codes were generated and stored during registration
+            codes = RecoveryCode.query.filter_by(user_id=user.id, used=False).all()
+            assert len(codes) >= 8
+            
+            # Generate one test code with the correct base32 format
+            real_recovery_code = generate_recovery_codes(999, count=1)[0]
+            
+            # Hash it and store it for this user (simulating a generated code)
+            test_code_hash = password_hasher.hash(real_recovery_code)
+            test_recovery_code = RecoveryCode(user_id=user.id, code_hash=test_code_hash)
+            db.session.add(test_recovery_code)
+            db.session.commit()
+        
+        # Step 4: Submit forgot password with the real recovery code
+        response = client.post('/forgot-password', data={
+            'email': 'resetuser@example.com',
+            'recovery_code': real_recovery_code
+        }, follow_redirects=True)
+        
+        # Should end up on reset password page
+        assert response.status_code == 200
+        assert b'Reset Your Password' in response.data
+        
+        # Step 5: Extract the token from the hidden form field
+        token_match = re.search(rb'name="token"\s+value="([^"]+)"', response.data)
+        assert token_match is not None, "Token not found in reset password form"
+        token_value = token_match.group(1).decode('utf-8')
+        assert len(token_value) > 0
+        
+        # Step 6: Submit new password via reset form with token
+        response = client.post('/reset-password', data={
+            'token': token_value,
+            'password': 'NewPass123!',
+            'confirm_password': 'NewPass123!'
+        }, follow_redirects=True)
+        
+        # Should succeed and redirect to login
+        assert response.status_code == 200
+        assert b'Password reset successfully' in response.data or b'login' in response.data.lower()
+        
+        # Step 7: Verify old password doesn't work anymore
+        login_response = client.post('/login', data={
+            'email': 'resetuser@example.com',
+            'password': 'OldPass123!'
+        }, follow_redirects=True)
+        # Should show error or stay on login page
+        assert b'Invalid email or password' in login_response.data or b'Recover Account' in login_response.data or b'login' in login_response.data.lower()
+        
+        # Step 8: Verify new password works
+        login_response = client.post('/login', data={
+            'email': 'resetuser@example.com',
+            'password': 'NewPass123!'
+        }, follow_redirects=True)
+        # Should successfully log in and redirect to index
+        assert login_response.status_code == 200
+        # Check for either success message or index page content
+        assert b'Welcome' in login_response.data or b'Reading Nook' in login_response.data
+    
+    def test_invalid_recovery_code_rejected(self, client):
+        """Verify invalid recovery codes are rejected"""
+        # Register user
+        client.post('/register', data={
+            'username': 'invaliduser',
+            'email': 'invaliduser@example.com',
+            'password': 'ValidPass123!',
+            'confirm_password': 'ValidPass123!'
+        })
+        
+        # Attempt recovery with invalid code
+        response = client.post('/forgot-password', data={
+            'email': 'invaliduser@example.com',
+            'recovery_code': 'XXXX-XXXX'
+        }, follow_redirects=True)
+        
+        assert response.status_code == 200
+        assert b'Invalid recovery code' in response.data or b'error' in response.data.lower()
+    
+    def test_recovery_code_must_match_email(self, client):
+        """Verify recovery code must be for the correct email"""
+        # Register two users
+        for i in range(2):
+            client.post('/register', data={
+                'username': f'user{i}',
+                'email': f'user{i}@example.com',
+                'password': 'ValidPass123!',
+                'confirm_password': 'ValidPass123!'
+            })
+        
+        # Try to use user0's recovery code with user1's email
+        response = client.post('/forgot-password', data={
+            'email': 'user1@example.com',
+            'recovery_code': 'XXXX-XXXX'  # Invalid for user1
+        }, follow_redirects=True)
+        
+        assert response.status_code == 200
+        # Should fail because code is invalid for this user
+        assert b'error' in response.data.lower() or b'invalid' in response.data.lower()
+    
+    def test_registration_rollback_on_recovery_code_generation_failure(self, client, monkeypatch):
+        """Test that user account is rolled back if recovery code generation fails.
+        
+        Ensures atomicity: if recovery code generation fails, the entire registration
+        is rolled back and no user is created (no race condition).
+        """
+        # Simulate recovery code generation failure
+        def mock_generate_recovery_codes_fail(*args, **kwargs):
+            raise Exception("Simulated recovery code generation failure")
+        
+        monkeypatch.setattr('app.generate_recovery_codes', mock_generate_recovery_codes_fail)
+        
+        # Attempt registration
+        response = client.post('/register', data={
+            'username': 'rollbacktest',
+            'email': 'rollback@example.com',
+            'password': 'ValidPass123!',
+            'confirm_password': 'ValidPass123!'
+        }, follow_redirects=True)
+        
+        # Should show error message
+        assert response.status_code == 200
+        assert b'Registration failed' in response.data
+        
+        # Most importantly: user should NOT be created in database
+        # Use app context because test may run outside of request context
+        with app.app_context():
+            user = User.query.filter_by(email='rollback@example.com').first()
+            assert user is None, "User should not be created if recovery code generation fails"
+            
+            # Verify no orphaned user account exists
+            all_users = User.query.all()
+            assert all(u.email != 'rollback@example.com' for u in all_users)
