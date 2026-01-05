@@ -564,10 +564,10 @@ def forgot_password():
         user = User.query.filter_by(email=form.email.data).first()
         
         if not user:
-            # Don't reveal if email exists (security best practice)
+            # Use generic message (don't reveal if email exists)
             app.logger.warning(f'Recovery attempt for non-existent email: {form.email.data}')
-            flash('If that email exists, a password reset link will be sent.', 'info')
-            return redirect(url_for('login'))
+            flash('Invalid email or recovery code.', 'error')
+            return redirect(url_for('forgot_password'))
         
         # Get all unused recovery codes for this user
         recovery_codes = RecoveryCode.query.filter_by(
@@ -576,9 +576,10 @@ def forgot_password():
         ).all()
         
         if not recovery_codes:
+            # Use same generic message (don't reveal that user exists but has no codes)
             app.logger.warning(f'Recovery attempt with no available codes for user: {user.username}')
-            flash('No available recovery codes. Please contact support.', 'error')
-            return redirect(url_for('login'))
+            flash('Invalid email or recovery code.', 'error')
+            return redirect(url_for('forgot_password'))
         
         # Check if provided code matches any unused code
         # Use constant-time verification: check all codes even after finding a match
@@ -597,8 +598,9 @@ def forgot_password():
                 pass
         
         if not matching_code:
+            # Same generic message for invalid code
             app.logger.warning(f'Invalid recovery code attempt for user: {user.username}')
-            flash('Invalid recovery code.', 'error')
+            flash('Invalid email or recovery code.', 'error')
             return redirect(url_for('forgot_password'))
         
         # Generate time-limited, cryptographically signed token
