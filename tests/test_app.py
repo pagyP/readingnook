@@ -306,10 +306,12 @@ class TestBookRoutes:
             book_id = book.id
         
         # Login as user2
-        client.post('/login', data={
+        login_response = client.post('/login', data={
             'email': 'user2@example.com',
             'password': 'ValidPass123!'
         }, follow_redirects=True)
+        # Verify login was successful
+        assert login_response.status_code == 200
         
         # Try to edit user1's book
         response = client.get(f'/edit/{book_id}')

@@ -19,8 +19,8 @@ Reading Nook supports account recovery using **recovery codes**. This is a passw
 4. The recovery code is marked as used and cannot be reused
 
 ### Code Format
-- Recovery codes use format: `XXXX-XXXX` (8 hexadecimal characters separated by a hyphen)
-- Example: `A1B2-C3D4`
+- Recovery codes use format: `XXXX-XXXX-XXXX` (14 alphanumeric characters: A-Z and 2-7, separated by hyphens)
+- Example: `ADR6-SVTG-FH5E`
 - All 8 codes are valid for recovery - use any one you have
 
 ## Security Details
@@ -28,8 +28,9 @@ Reading Nook supports account recovery using **recovery codes**. This is a passw
 ### Code Generation
 ```python
 # 8 codes generated per user during registration
-# Each code: 8 random alphanumeric characters (4-char + 4-char format)
-# Generation: secrets.token_hex() for cryptographic randomness
+# Each code: 12 base32 characters (A-Z, 2-7) formatted as XXXX-XXXX-XXXX
+# Entropy: 32^12 ≈ 1.2 * 10^18 combinations (exceeds NIST 2^50 minimum)
+# Generation: secrets.token_bytes(9) for cryptographic randomness
 ```
 
 ### Code Storage
@@ -113,20 +114,34 @@ GET /forgot-password
 
 POST /forgot-password
   - Verify email and recovery code
-  - Redirects to password reset if valid
+  - Generates secure, time-limited reset token (cryptographically signed)
+  - Redirects to password reset with token parameter
   - Returns error if code is invalid/used
+  - Rate limited to 5 attempts per 15 minutes per IP
 ```
 
-### Reset Password
+### Reset Password (Secure Token-Based)
 ```
-GET /reset-password/<user_id>/<code_id>
+GET /reset-password?token=<signed_token>
   - Display password reset form (after code verification)
+  - Token is time-limited (15 minutes) and cryptographically signed
+  - Token contains encrypted user ID and code ID (unguessable)
 
-POST /reset-password/<user_id>/<code_id>
+POST /reset-password
+  - Accepts token in form data or URL parameter
   - Set new password
-  - Mark recovery code as used
+  - Mark recovery code as used (single-use enforcement)
   - Redirect to login
+  - Returns error if token is invalid or expired
 ```
+
+### Security Features
+- **Unguessable Tokens**: Uses `URLSafeTimedSerializer` for cryptographic signing
+- **Time-Limited**: Tokens expire after 15 minutes
+- **No Predictable IDs**: User ID and code ID are encrypted within the token
+- **Single-Use Enforcement**: Recovery code marked as used after reset
+- **Integrity Verification**: Token signature prevents tampering
+- **No Sensitive Data in Logs**: IDs not exposed in browser history or server logs
 
 ## Test Coverage
 
@@ -194,7 +209,7 @@ Possible improvements (not yet implemented):
 ## Troubleshooting
 
 ### "Invalid recovery code"
-- Verify code format is exactly: `XXXX-XXXX`
+- Verify code format is exactly: `XXXX-XXXX-XXXX` (14 alphanumeric characters)
 - Check that you're using the correct email address
 - Recovery codes are case-sensitive: use exact case
 - If code was already used, it cannot be reused
