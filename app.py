@@ -581,14 +581,20 @@ def forgot_password():
             return redirect(url_for('login'))
         
         # Check if provided code matches any unused code
+        # Use constant-time verification: check all codes even after finding a match
+        # This prevents timing side-channel attacks that could leak information about
+        # which position in the list contains the correct code
         matching_code = None
         for recovery_code in recovery_codes:
             try:
                 password_hasher.verify(recovery_code.code_hash, form.recovery_code.data)
-                matching_code = recovery_code
-                break
+                # Found a match, but continue checking remaining codes
+                # to avoid revealing position via timing information
+                if matching_code is None:
+                    matching_code = recovery_code
             except (VerifyMismatchError, InvalidHashError):
-                continue
+                # Code doesn't match, continue to next (doesn't break early)
+                pass
         
         if not matching_code:
             app.logger.warning(f'Invalid recovery code attempt for user: {user.username}')
