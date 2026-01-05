@@ -271,6 +271,12 @@ class RecoveryCode(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     used_at = db.Column(db.DateTime)
     
+    # Composite index for query: RecoveryCode.query.filter_by(user_id=x, used=False)
+    # Significantly improves performance as recovery codes accumulate
+    __table_args__ = (
+        db.Index('idx_user_id_used', 'user_id', 'used'),
+    )
+    
     def __repr__(self):
         return f'<RecoveryCode user_id={self.user_id}>'
 
