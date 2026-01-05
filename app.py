@@ -110,16 +110,11 @@ limiter = Limiter(
     enabled=limiter_enabled
 )
 
-# Token serializer for password reset tokens
+# Token serializer for password reset and recovery code display tokens
 # Uses app.config['SECRET_KEY'] for signing
-# Tokens expire after 15 minutes (900 seconds)
+# Tokens are stateless and work across multiple gunicorn workers
 serializer = URLSafeTimedSerializer(os.getenv('SECRET_KEY', 'dev-key-change-in-production'))
 TOKEN_EXPIRATION_SECONDS = 15 * 60  # 15 minutes
-
-# Server-side cache for sensitive recovery code display
-# Maps one-time tokens to recovery codes with short expiration
-# This avoids storing all recovery codes in session (which could be compromised)
-recovery_code_cache = {}
 
 def generate_recovery_code_display_token(user_id, recovery_codes):
     """Generate a signed, time-limited token containing recovery codes.
@@ -132,6 +127,12 @@ def generate_recovery_code_display_token(user_id, recovery_codes):
     - Recovery codes are not stored in session (reduces session compromise risk)
     - Token expires after 5 minutes
     - Signed token prevents modification of codes or user_id
+    - **Stateless design**: Works with multiple gunicorn workers (no shared cache needed)
+    
+    Architecture note:
+    Using signed tokens instead of server-side cache allows the application to
+    scale horizontally with multiple gunicorn workers. Each worker can independently
+    verify the token's signature without requiring a shared Redis/Memcached cache.
     
     Args:
         user_id: ID of the user whose codes are being displayed
