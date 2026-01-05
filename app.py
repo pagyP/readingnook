@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, g
+from flask import Flask, render_template, request, redirect, url_for, flash, session, g, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from flask_wtf import FlaskForm
@@ -14,6 +14,7 @@ import os
 import re
 import logging
 import secrets
+import requests
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -172,6 +173,89 @@ def cleanup_expired_recovery_codes():
     expire cryptographically after 5 minutes.
     """
     pass
+
+
+def fetch_book_from_open_library(isbn):
+    """Fetch book metadata from Open Library API by ISBN.
+    
+    Args:
+        isbn: ISBN-10 or ISBN-13 (with or without hyphens)
+    
+    Returns:
+        Dict with keys: title, author, genre, cover_url
+        Or None if book not found or API error
+    
+    Security:
+        - API call is non-blocking with timeout (3 seconds)
+        - Returns only public data from Open Library
+        - Gracefully handles API failures
+    """
+    try:
+        # Clean ISBN: remove hyphens and spaces
+        isbn_clean = isbn.replace('-', '').replace(' ', '')
+        
+        # Open Library Search API endpoint
+        # More reliable than the books API for finding metadata
+        url = f'https://openlibrary.org/search.json?isbn={isbn_clean}'
+        
+        # Timeout after 3 seconds to avoid blocking user
+        response = requests.get(url, timeout=3)
+        
+        if response.status_code != 200:
+            app.logger.warning(f'Open Library API error for ISBN {isbn_clean}: status {response.status_code}')
+            return None
+        
+        data = response.json()
+        
+        # Search API returns docs array
+        docs = data.get('docs', [])
+        if not docs:
+            app.logger.info(f'ISBN {isbn_clean} not found in Open Library')
+            return None
+        
+        # Use first result
+        book_data = docs[0]
+        
+        # Extract fields from response
+        result = {}
+        
+        # Title
+        result['title'] = book_data.get('title', '')
+        
+        # Author(s)
+        author_names = book_data.get('author_name', [])
+        if author_names:
+            result['author'] = ', '.join(author_names[:3])  # First 3 authors
+        else:
+            result['author'] = ''
+        
+        # Subjects (genres) - use subject list if available
+        subjects = book_data.get('subject', [])
+        if subjects:
+            # Use first 3 subjects as genre
+            result['genre'] = ', '.join(subjects[:3])
+        else:
+            result['genre'] = ''
+        
+        # Cover image URL - Open Library provides cover_i (image ID)
+        cover_id = book_data.get('cover_i')
+        if cover_id:
+            result['cover_url'] = f'https://covers.openlibrary.org/b/id/{cover_id}-M.jpg'
+        else:
+            result['cover_url'] = None
+        
+        app.logger.info(f'Successfully fetched book from Open Library: {result["title"]}')
+        return result
+        
+    except requests.Timeout:
+        app.logger.warning(f'Open Library API timeout for ISBN {isbn}')
+        return None
+    except requests.RequestException as e:
+        app.logger.error(f'Open Library API request error: {str(e)}')
+        return None
+    except (ValueError, KeyError) as e:
+        app.logger.error(f'Error parsing Open Library response: {str(e)}')
+        return None
 
 
 def generate_reset_token(user_id, code_id):
@@ -445,6 +529,31 @@ class ResetPasswordForm(FlaskForm):
     submit = SubmitField('Reset Password')
 
 # Routes
+
+# API Endpoints
+@app.route('/api/book-lookup', methods=['POST'])
+def book_lookup():
+    """API endpoint to fetch book metadata from Open Library by ISBN.
+    
+    Request: JSON with 'isbn' field
+    Response: JSON with book metadata (title, author, genre, cover_url)
+              or error message if not found
+    """
+    data = request.get_json()
+    isbn = data.get('isbn', '').strip()
+    
+    if not isbn:
+        return jsonify({'error': 'ISBN is required'}), 400
+    
+    # Fetch from Open Library
+    book_data = fetch_book_from_open_library(isbn)
+    
+    if not book_data:
+        return jsonify({'error': 'Book not found in Open Library'}), 404
+    
+    # Return found book data
+    return jsonify(book_data), 200
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if current_user.is_authenticated:

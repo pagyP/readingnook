@@ -7,11 +7,13 @@ A simple Flask web application to track and record the books you've read.
 ## Features
 
 - ✅ Add books you've read with title, author, and date
+- 🔍 **Auto-lookup book info from ISBN** - Automatically fetch title, author, and genre using Open Library API
 - ⭐ Rate books on a 1-5 star scale
 - 📝 Add personal notes and thoughts about each book
 - ✏️ Edit book entries
 - 🗑️ Delete books from your collection
 - 📊 View all your books in a beautiful grid layout
+- 🔐 Password-less account recovery using recovery codes
 
 ## Installation
 
@@ -132,6 +134,7 @@ readingnook/
 ## Documentation
 
 - **[RECOVERY_CODES.md](RECOVERY_CODES.md)** - Complete guide to password recovery using recovery codes
+- **[OPEN_LIBRARY_INTEGRATION.md](OPEN_LIBRARY_INTEGRATION.md)** - ISBN lookup and auto-fill feature guide
 - **[DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md)** - Docker and production deployment guide
 
 ## Future Enhancements
