@@ -414,6 +414,51 @@ def password_strength(form, field):
     if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
         raise ValidationError('Password must contain at least one special character (!@#$%^&*(),.?":{}|<>).')
 
+def validate_cover_url(url):
+    """Validate cover URL format and source.
+    
+    Args:
+        url: URL string to validate (can be None or empty)
+    
+    Returns:
+        The URL if valid, None if empty/None
+    
+    Raises:
+        ValueError: If URL format is invalid or not from trusted source
+    
+    Security:
+        - Only allows Open Library CDN URLs (covers.openlibrary.org)
+        - Validates URL format to prevent injection
+        - Enforces length limit (500 chars max per database schema)
+    """
+    if not url or not url.strip():
+        return None
+    
+    url = url.strip()
+    
+    # Enforce length limit
+    if len(url) > 500:
+        raise ValueError('Cover URL exceeds maximum length of 500 characters.')
+    
+    # Basic URL format validation: must start with https://
+    # (HTTP is not allowed for security reasons)
+    if not url.startswith('https://'):
+        raise ValueError('Cover URL must use HTTPS protocol.')
+    
+    # Security: Only allow Open Library CDN URLs
+    # Format: https://covers.openlibrary.org/b/id/{cover_id}-{size}.{format}
+    # Example: https://covers.openlibrary.org/b/id/10590366-M.jpg
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    
+    if parsed.netloc != 'covers.openlibrary.org':
+        raise ValueError('Cover URL must be from Open Library CDN (covers.openlibrary.org).')
+    
+    if not parsed.path.startswith('/b/id/'):
+        raise ValueError('Cover URL must follow Open Library CDN path structure.')
+    
+    return url
+
 def generate_recovery_codes(user_id, count=8):
     """Generate recovery codes for a user.
     
@@ -817,8 +862,15 @@ def add_book():
                 except ValueError:
                     date_read = None
             
-            # Get cover_url from form data if provided (from ISBN lookup)
-            cover_url = request.form.get('cover_url', '').strip() or None
+            # Get and validate cover_url from form data if provided (from ISBN lookup)
+            cover_url_raw = request.form.get('cover_url', '').strip() or None
+            try:
+                cover_url = validate_cover_url(cover_url_raw)
+            except ValueError as e:
+                # Log the attempt and show generic error to user
+                app.logger.warning(f'Invalid cover URL rejected: {str(e)}')
+                flash('Invalid cover URL provided. Book saved without cover image.', 'warning')
+                cover_url = None
             
             book = Book(
                 title=form.title.data,
@@ -864,8 +916,15 @@ def edit_book(id):
                 except ValueError:
                     date_read = book.date_read  # Keep original if parsing fails
             
-            # Get cover_url from form data if provided (from ISBN lookup)
-            cover_url = request.form.get('cover_url', '').strip() or book.cover_url
+            # Get and validate cover_url from form data if provided (from ISBN lookup)
+            cover_url_raw = request.form.get('cover_url', '').strip() or None
+            try:
+                cover_url = validate_cover_url(cover_url_raw)
+            except ValueError as e:
+                # Log the attempt and show generic error to user
+                app.logger.warning(f'Invalid cover URL rejected during edit: {str(e)}')
+                flash('Invalid cover URL provided. Using existing cover image.', 'warning')
+                cover_url = book.cover_url
             
             book.title = form.title.data
             book.author = form.author.data
