@@ -294,7 +294,7 @@
                     <div class="book-card">
                         {% if book.cover_url %}
                             <div class="book-card-cover">
-                                <img src="{{ book.cover_url }}" alt="{{ book.title }}" onerror="this.parentElement.innerHTML='<div class=&quot;book-card-cover-placeholder&quot;>📖</div>'">
+                                <img src="{{ book.cover_url }}" alt="{{ book.title }}" onerror="(() => { const div = document.createElement('div'); div.className = 'book-card-cover-placeholder'; div.textContent = '📖'; this.parentElement.innerHTML = ''; this.parentElement.appendChild(div); }).call(this)">
                             </div>
                         {% else %}
                             <div class="book-card-cover">
