@@ -667,3 +667,261 @@ class TestRecoveryCodes:
             # Verify no orphaned user account exists
             all_users = User.query.all()
             assert all(u.email != 'rollback@example.com' for u in all_users)
+
+
+class TestOpenLibraryIntegration:
+    """Test Open Library API integration for book metadata fetching."""
+    
+    def test_fetch_book_successful_lookup(self, monkeypatch):
+        """Test successful book lookup with all fields present."""
+        mock_response = {
+            'docs': [{
+                'title': 'The Great Gatsby',
+                'author_name': ['F. Scott Fitzgerald'],
+                'subject': ['American fiction', 'Jazz Age', 'Fiction'],
+                'cover_i': 123456
+            }]
+        }
+        
+        def mock_get(*args, **kwargs):
+            from unittest.mock import Mock
+            response = Mock()
+            response.status_code = 200
+            response.json.return_value = mock_response
+            return response
+        
+        monkeypatch.setattr('app.requests.get', mock_get)
+        
+        from app import fetch_book_from_open_library
+        result = fetch_book_from_open_library('978-0743273565')
+        
+        assert result is not None
+        assert result['title'] == 'The Great Gatsby'
+        assert result['author'] == 'F. Scott Fitzgerald'
+        assert 'American fiction' in result['genre']
+        assert result['cover_url'] == 'https://covers.openlibrary.org/b/id/123456-M.jpg'
+    
+    def test_fetch_book_multiple_authors(self, monkeypatch):
+        """Test book lookup with multiple authors."""
+        mock_response = {
+            'docs': [{
+                'title': 'Some Book',
+                'author_name': ['Author One', 'Author Two', 'Author Three', 'Author Four'],
+                'subject': [],
+                'cover_i': 789
+            }]
+        }
+        
+        def mock_get(*args, **kwargs):
+            from unittest.mock import Mock
+            response = Mock()
+            response.status_code = 200
+            response.json.return_value = mock_response
+            return response
+        
+        monkeypatch.setattr('app.requests.get', mock_get)
+        
+        from app import fetch_book_from_open_library
+        result = fetch_book_from_open_library('1234567890')
+        
+        assert result is not None
+        # Should include first 3 authors
+        assert 'Author One' in result['author']
+        assert 'Author Two' in result['author']
+        assert 'Author Three' in result['author']
+        assert 'Author Four' not in result['author']
+    
+    def test_fetch_book_missing_cover_image(self, monkeypatch):
+        """Test book lookup when cover image is not available."""
+        mock_response = {
+            'docs': [{
+                'title': 'Book Without Cover',
+                'author_name': ['John Doe'],
+                'subject': ['Fiction'],
+                # No cover_i field
+            }]
+        }
+        
+        def mock_get(*args, **kwargs):
+            from unittest.mock import Mock
+            response = Mock()
+            response.status_code = 200
+            response.json.return_value = mock_response
+            return response
+        
+        monkeypatch.setattr('app.requests.get', mock_get)
+        
+        from app import fetch_book_from_open_library
+        result = fetch_book_from_open_library('9876543210')
+        
+        assert result is not None
+        assert result['title'] == 'Book Without Cover'
+        assert result['cover_url'] is None
+    
+    def test_fetch_book_missing_author(self, monkeypatch):
+        """Test book lookup when author data is missing."""
+        mock_response = {
+            'docs': [{
+                'title': 'Anonymous Work',
+                # No author_name field
+                'subject': ['Mystery'],
+                'cover_i': 999
+            }]
+        }
+        
+        def mock_get(*args, **kwargs):
+            from unittest.mock import Mock
+            response = Mock()
+            response.status_code = 200
+            response.json.return_value = mock_response
+            return response
+        
+        monkeypatch.setattr('app.requests.get', mock_get)
+        
+        from app import fetch_book_from_open_library
+        result = fetch_book_from_open_library('5555555555')
+        
+        assert result is not None
+        assert result['title'] == 'Anonymous Work'
+        assert result['author'] == ''
+    
+    def test_fetch_book_missing_genre(self, monkeypatch):
+        """Test book lookup when genre/subject data is missing."""
+        mock_response = {
+            'docs': [{
+                'title': 'Unclassified Book',
+                'author_name': ['Anonymous'],
+                # No subject field
+                'cover_i': 111
+            }]
+        }
+        
+        def mock_get(*args, **kwargs):
+            from unittest.mock import Mock
+            response = Mock()
+            response.status_code = 200
+            response.json.return_value = mock_response
+            return response
+        
+        monkeypatch.setattr('app.requests.get', mock_get)
+        
+        from app import fetch_book_from_open_library
+        result = fetch_book_from_open_library('4444444444')
+        
+        assert result is not None
+        assert result['genre'] == ''
+    
+    def test_fetch_book_not_found(self, monkeypatch):
+        """Test book lookup when ISBN is not found."""
+        mock_response = {'docs': []}  # Empty results
+        
+        def mock_get(*args, **kwargs):
+            from unittest.mock import Mock
+            response = Mock()
+            response.status_code = 200
+            response.json.return_value = mock_response
+            return response
+        
+        monkeypatch.setattr('app.requests.get', mock_get)
+        
+        from app import fetch_book_from_open_library
+        result = fetch_book_from_open_library('0000000000')
+        
+        assert result is None
+    
+    def test_fetch_book_api_error_status_code(self, monkeypatch):
+        """Test handling of HTTP error status from API."""
+        def mock_get(*args, **kwargs):
+            from unittest.mock import Mock
+            response = Mock()
+            response.status_code = 500
+            return response
+        
+        monkeypatch.setattr('app.requests.get', mock_get)
+        
+        from app import fetch_book_from_open_library
+        result = fetch_book_from_open_library('1111111111')
+        
+        assert result is None
+    
+    def test_fetch_book_timeout(self, monkeypatch):
+        """Test handling of API timeout."""
+        def mock_get(*args, **kwargs):
+            import requests
+            raise requests.Timeout('Connection timed out')
+        
+        monkeypatch.setattr('app.requests.get', mock_get)
+        
+        from app import fetch_book_from_open_library
+        result = fetch_book_from_open_library('2222222222')
+        
+        assert result is None
+    
+    def test_fetch_book_request_exception(self, monkeypatch):
+        """Test handling of general request exceptions."""
+        def mock_get(*args, **kwargs):
+            import requests
+            raise requests.ConnectionError('Network error')
+        
+        monkeypatch.setattr('app.requests.get', mock_get)
+        
+        from app import fetch_book_from_open_library
+        result = fetch_book_from_open_library('3333333333')
+        
+        assert result is None
+    
+    def test_fetch_book_malformed_json_response(self, monkeypatch):
+        """Test handling of malformed JSON response."""
+        def mock_get(*args, **kwargs):
+            from unittest.mock import Mock
+            response = Mock()
+            response.status_code = 200
+            response.json.side_effect = ValueError('Invalid JSON')
+            return response
+        
+        monkeypatch.setattr('app.requests.get', mock_get)
+        
+        from app import fetch_book_from_open_library
+        result = fetch_book_from_open_library('6666666666')
+        
+        assert result is None
+    
+    def test_fetch_book_missing_docs_key(self, monkeypatch):
+        """Test handling when response lacks 'docs' key."""
+        mock_response = {}  # No 'docs' key
+        
+        def mock_get(*args, **kwargs):
+            from unittest.mock import Mock
+            response = Mock()
+            response.status_code = 200
+            response.json.return_value = mock_response
+            return response
+        
+        monkeypatch.setattr('app.requests.get', mock_get)
+        
+        from app import fetch_book_from_open_library
+        result = fetch_book_from_open_library('7777777777')
+        
+        assert result is None
+    
+    def test_fetch_book_isbn_cleanup(self, monkeypatch):
+        """Test that ISBN is properly cleaned (hyphens/spaces removed)."""
+        received_urls = []
+        
+        def mock_get(url, **kwargs):
+            received_urls.append(url)
+            from unittest.mock import Mock
+            response = Mock()
+            response.status_code = 200
+            response.json.return_value = {'docs': []}
+            return response
+        
+        monkeypatch.setattr('app.requests.get', mock_get)
+        
+        from app import fetch_book_from_open_library
+        fetch_book_from_open_library('978-0-7432-7356-5')  # ISBN with hyphens
+        
+        # Verify the API was called with cleaned ISBN
+        assert len(received_urls) == 1
+        assert '978-0-7432-7356-5' not in received_urls[0]  # Hyphens removed
+        assert '9780743273565' in received_urls[0]  # Clean ISBN used
