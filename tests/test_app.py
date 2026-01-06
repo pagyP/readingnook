@@ -925,3 +925,223 @@ class TestOpenLibraryIntegration:
         assert len(received_urls) == 1
         assert '978-0-7432-7356-5' not in received_urls[0]  # Hyphens removed
         assert '9780743273565' in received_urls[0]  # Clean ISBN used
+
+
+class TestBookLookupEndpoint:
+    """Test the /api/book-lookup HTTP endpoint."""
+    
+    def test_book_lookup_requires_authentication(self, client):
+        """Test that unauthenticated users cannot access the endpoint."""
+        response = client.post('/api/book-lookup', 
+            json={'isbn': '978-0743273565'},
+            follow_redirects=False)
+        
+        # Should redirect to login (302) or return unauthorized (401)
+        assert response.status_code in [302, 401]
+    
+    def test_book_lookup_successful_request(self, auth_user, monkeypatch):
+        """Test successful book lookup with authenticated user."""
+        client, user = auth_user
+        
+        mock_response = {
+            'docs': [{
+                'title': 'The Great Gatsby',
+                'author_name': ['F. Scott Fitzgerald'],
+                'subject': ['American fiction'],
+                'cover_i': 123456
+            }]
+        }
+        
+        def mock_get(*args, **kwargs):
+            from unittest.mock import Mock
+            response = Mock()
+            response.status_code = 200
+            response.json.return_value = mock_response
+            return response
+        
+        monkeypatch.setattr('app.requests.get', mock_get)
+        
+        response = client.post('/api/book-lookup',
+            json={'isbn': '978-0743273565'},
+            content_type='application/json')
+        
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['title'] == 'The Great Gatsby'
+        assert data['author'] == 'F. Scott Fitzgerald'
+        assert 'American fiction' in data['genre']
+        assert data['cover_url'] == 'https://covers.openlibrary.org/b/id/123456-M.jpg'
+    
+    def test_book_lookup_missing_isbn_parameter(self, auth_user):
+        """Test that missing ISBN parameter returns error."""
+        client, user = auth_user
+        
+        response = client.post('/api/book-lookup',
+            json={},  # No ISBN
+            content_type='application/json')
+        
+        assert response.status_code == 400
+        data = response.get_json()
+        assert 'error' in data
+        assert 'ISBN is required' in data['error']
+    
+    def test_book_lookup_empty_isbn_parameter(self, auth_user):
+        """Test that empty ISBN parameter returns error."""
+        client, user = auth_user
+        
+        response = client.post('/api/book-lookup',
+            json={'isbn': ''},
+            content_type='application/json')
+        
+        assert response.status_code == 400
+        data = response.get_json()
+        assert 'error' in data
+    
+    def test_book_lookup_whitespace_isbn(self, auth_user):
+        """Test that whitespace-only ISBN is treated as empty."""
+        client, user = auth_user
+        
+        response = client.post('/api/book-lookup',
+            json={'isbn': '   '},
+            content_type='application/json')
+        
+        assert response.status_code == 400
+        data = response.get_json()
+        assert 'error' in data
+    
+    def test_book_lookup_isbn_not_found(self, auth_user, monkeypatch):
+        """Test when ISBN is not found in Open Library."""
+        client, user = auth_user
+        
+        mock_response = {'docs': []}  # Empty results
+        
+        def mock_get(*args, **kwargs):
+            from unittest.mock import Mock
+            response = Mock()
+            response.status_code = 200
+            response.json.return_value = mock_response
+            return response
+        
+        monkeypatch.setattr('app.requests.get', mock_get)
+        
+        response = client.post('/api/book-lookup',
+            json={'isbn': '0000000000'},
+            content_type='application/json')
+        
+        assert response.status_code == 404
+        data = response.get_json()
+        assert 'error' in data
+        assert 'Book not found' in data['error']
+    
+    def test_book_lookup_api_timeout(self, auth_user, monkeypatch):
+        """Test handling of API timeout."""
+        client, user = auth_user
+        
+        def mock_get(*args, **kwargs):
+            import requests
+            raise requests.Timeout('Connection timed out')
+        
+        monkeypatch.setattr('app.requests.get', mock_get)
+        
+        response = client.post('/api/book-lookup',
+            json={'isbn': '1234567890'},
+            content_type='application/json')
+        
+        # API returns None on timeout, which returns 404
+        assert response.status_code == 404
+        data = response.get_json()
+        assert 'error' in data
+    
+    def test_book_lookup_api_error(self, auth_user, monkeypatch):
+        """Test handling of API connection error."""
+        client, user = auth_user
+        
+        def mock_get(*args, **kwargs):
+            import requests
+            raise requests.ConnectionError('Network error')
+        
+        monkeypatch.setattr('app.requests.get', mock_get)
+        
+        response = client.post('/api/book-lookup',
+            json={'isbn': '9876543210'},
+            content_type='application/json')
+        
+        assert response.status_code == 404
+        data = response.get_json()
+        assert 'error' in data
+    
+    def test_book_lookup_response_format_json(self, auth_user, monkeypatch):
+        """Test that response is valid JSON with correct structure."""
+        client, user = auth_user
+        
+        mock_response = {
+            'docs': [{
+                'title': 'Test Book',
+                'author_name': ['Test Author'],
+                'subject': ['Test Genre'],
+                'cover_i': 999
+            }]
+        }
+        
+        def mock_get(*args, **kwargs):
+            from unittest.mock import Mock
+            response = Mock()
+            response.status_code = 200
+            response.json.return_value = mock_response
+            return response
+        
+        monkeypatch.setattr('app.requests.get', mock_get)
+        
+        response = client.post('/api/book-lookup',
+            json={'isbn': '1111111111'},
+            content_type='application/json')
+        
+        assert response.status_code == 200
+        # Verify response is valid JSON
+        data = response.get_json()
+        assert data is not None
+        # Verify required fields
+        assert 'title' in data
+        assert 'author' in data
+        assert 'genre' in data
+        assert 'cover_url' in data
+    
+    def test_book_lookup_partial_metadata(self, auth_user, monkeypatch):
+        """Test response with minimal metadata."""
+        client, user = auth_user
+        
+        mock_response = {
+            'docs': [{
+                'title': 'Minimal Book',
+                # No author, genre, or cover
+            }]
+        }
+        
+        def mock_get(*args, **kwargs):
+            from unittest.mock import Mock
+            response = Mock()
+            response.status_code = 200
+            response.json.return_value = mock_response
+            return response
+        
+        monkeypatch.setattr('app.requests.get', mock_get)
+        
+        response = client.post('/api/book-lookup',
+            json={'isbn': '5555555555'},
+            content_type='application/json')
+        
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['title'] == 'Minimal Book'
+        assert data['author'] == ''
+        assert data['genre'] == ''
+        assert data['cover_url'] is None
+    
+    def test_book_lookup_request_method_get_not_allowed(self, auth_user):
+        """Test that GET requests are not allowed (POST only)."""
+        client, user = auth_user
+        
+        response = client.get('/api/book-lookup?isbn=1234567890')
+        
+        # Should return 405 Method Not Allowed
+        assert response.status_code == 405
