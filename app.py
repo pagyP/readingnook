@@ -578,6 +578,7 @@ class ResetPasswordForm(FlaskForm):
 
 # API Endpoints
 @app.route('/api/book-lookup', methods=['POST'])
+@login_required
 def book_lookup():
     """API endpoint to fetch book metadata from Open Library by ISBN.
     
