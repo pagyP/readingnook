@@ -1,5 +1,23 @@
 # Docker Production Deployment Guide
 
+## Deployment Options
+
+### Option A: Local Build (Development)
+For local development or building images yourself:
+```bash
+docker compose up --build
+```
+
+### Option B: Pre-built Image from GitHub Container Registry (Production)
+For production deployments using pre-built images from GHCR:
+```bash
+docker compose -f docker-compose.prod.yml up
+```
+
+This uses `ghcr.io/pagyp/readingnook:latest` (or specify a version tag).
+
+---
+
 ## Quick Start
 
 ### 1. Prepare Environment
@@ -87,6 +105,29 @@ docker compose down
 # Remove everything (careful!)
 docker compose down -v
 ```
+
+## GitHub Container Registry (GHCR) Images
+
+### Available Image Tags
+Images are automatically built and pushed to `ghcr.io/pagyp/readingnook` by GitHub Actions:
+- `latest` - Latest build from main branch
+- `main` - Current main branch (same as latest)
+- `v*` - Semantic version tags (e.g., `v1.0.0`, `v1.0`, `v1`)
+
+### Using Specific Versions
+In `docker-compose.prod.yml`, specify a version:
+```yaml
+web:
+  image: ghcr.io/pagyp/readingnook:v1.0.0  # Specific version
+  # or
+  image: ghcr.io/pagyp/readingnook:latest   # Always latest
+```
+
+### Image Builds
+Images are built automatically on:
+- **Push to main branch** → tagged as `latest` and `main`
+- **Git tags** (e.g., `v1.0.0`) → tagged as `1.0.0`, `1.0`, and updated `latest`
+- **Pull requests** → built but not pushed
 
 ## Reverse Proxy Configuration
 
