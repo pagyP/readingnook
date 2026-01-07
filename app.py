@@ -372,7 +372,7 @@ class Book(db.Model):
     isbn = db.Column(db.String(20))
     genre = db.Column(db.String(100))
     format = db.Column(db.String(20), default='physical')  # 'physical' or 'ebook'
-    date_read = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    date_added = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     rating = db.Column(db.Integer)  # 1-5 stars
     notes = db.Column(db.Text)
     cover_url = db.Column(db.String(500))  # Open Library cover image URL
@@ -552,7 +552,7 @@ class BookForm(FlaskForm):
     notes = StringField('Notes', validators=[
         Length(max=5000, message='Notes must be 5000 characters or less.')
     ])
-    date_read = StringField('Date Read')
+    date_added = StringField('Date Added')
     submit = SubmitField('Save Book')
 
 class RecoverAccountForm(FlaskForm):
@@ -842,9 +842,9 @@ def index():
                 Book.isbn.ilike(f'%{search_query}%'),
                 Book.genre.ilike(f'%{search_query}%')
             )
-        ).order_by(Book.date_read.desc()).all()
+        ).order_by(Book.date_added.desc()).all()
     else:
-        books = Book.query.filter_by(user_id=current_user.id).order_by(Book.date_read.desc()).all()
+        books = Book.query.filter_by(user_id=current_user.id).order_by(Book.date_added.desc()).all()
     
     return render_template('index.html', books=books, search_query=search_query)
 
@@ -854,14 +854,14 @@ def add_book():
     form = BookForm()
     if form.validate_on_submit():
         try:
-            # Parse date_read if provided
-            date_read = None
-            if form.date_read.data:
+            # Parse date_added if provided, otherwise use current date
+            date_added = None
+            if form.date_added.data:
                 try:
-                    date_read = datetime.strptime(form.date_read.data, '%Y-%m-%d')
-                    date_read = date_read.replace(tzinfo=timezone.utc)
+                    date_added = datetime.strptime(form.date_added.data, '%Y-%m-%d')
+                    date_added = date_added.replace(tzinfo=timezone.utc)
                 except ValueError:
-                    date_read = None
+                    date_added = None
             
             # Get and validate cover_url from form data if provided (from ISBN lookup)
             cover_url_raw = request.form.get('cover_url', '').strip() or None
@@ -881,7 +881,7 @@ def add_book():
                 format=form.format.data,
                 rating=form.rating.data or None,
                 notes=form.notes.data or None,
-                date_read=date_read,
+                date_added=date_added,
                 cover_url=cover_url,
                 user_id=current_user.id
             )
@@ -908,14 +908,14 @@ def edit_book(id):
     form = BookForm()
     if form.validate_on_submit():
         try:
-            # Parse date_read if provided
-            date_read = None
-            if form.date_read.data:
+            # Parse date_added if provided
+            date_added = None
+            if form.date_added.data:
                 try:
-                    date_read = datetime.strptime(form.date_read.data, '%Y-%m-%d')
-                    date_read = date_read.replace(tzinfo=timezone.utc)
+                    date_added = datetime.strptime(form.date_added.data, '%Y-%m-%d')
+                    date_added = date_added.replace(tzinfo=timezone.utc)
                 except ValueError:
-                    date_read = book.date_read  # Keep original if parsing fails
+                    date_added = book.date_added  # Keep original if parsing fails
             
             # Get and validate cover_url from form data if provided (from ISBN lookup)
             cover_url_raw = request.form.get('cover_url', '').strip() or None
@@ -935,8 +935,8 @@ def edit_book(id):
             book.rating = form.rating.data or None
             book.notes = form.notes.data or None
             book.cover_url = cover_url
-            if date_read:
-                book.date_read = date_read
+            if date_added:
+                book.date_added = date_added
             db.session.commit()
             flash(f'Book "{book.title}" updated successfully!', 'success')
             return redirect(url_for('index'))
@@ -952,8 +952,8 @@ def edit_book(id):
         form.format.data = book.format
         form.rating.data = book.rating
         form.notes.data = book.notes
-        if book.date_read:
-            form.date_read.data = book.date_read.strftime('%Y-%m-%d')
+        if book.date_added:
+            form.date_added.data = book.date_added.strftime('%Y-%m-%d')
     
     return render_template('edit_book.html', form=form, book=book)
 
