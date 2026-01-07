@@ -1,5 +1,12 @@
 [![Tests](https://github.com/pagyP/readingnook/actions/workflows/python-app.yml/badge.svg)](https://github.com/pagyP/readingnook/actions/workflows/python-app.yml)
 
+[![Bandit](https://github.com/pagyP/readingnook/actions/workflows/bandit.yml/badge.svg)](https://github.com/pagyP/readingnook/actions/workflows/bandit.yml)
+
+[![Build and Push Docker Image](https://github.com/pagyP/readingnook/actions/workflows/docker-build-push.yml/badge.svg)](https://github.com/pagyP/readingnook/actions/workflows/docker-build-push.yml)
+
+[![CodeQL](https://github.com/pagyP/readingnook/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/pagyP/readingnook/actions/workflows/github-code-scanning/codeql)
+
+
 # Reading Nook 📚
 
 A simple Flask web application to track and record the books you've read.
