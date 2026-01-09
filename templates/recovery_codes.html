@@ -124,9 +124,18 @@
 <div class="recovery-container">
     <h2>Save Your Recovery Codes</h2>
     
+    <div style="background: #e7f3ff; border: 2px solid #2196F3; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
+        <p style="margin: 0; font-size: 0.95em;"><strong>Account Email:</strong></p>
+        <p style="margin: 8px 0 0 0; font-size: 1.1em; font-weight: 600; color: #1976D2;">{{ user.email }}</p>
+        <p style="margin: 8px 0 0 0; font-size: 0.85em; color: #555;">
+            <em>Make sure this is correct. You'll use this email to log in and recover your account.</em>
+        </p>
+    </div>
+    
     <div class="warning-box">
-        <h3>⚠️ Important: Save these codes now!</h3>
-        <p>These recovery codes are your backup way to access your account if you forget your password. <strong>This is the only time we'll show you these codes.</strong></p>
+        <h3>⚠️ Important: Save these codes and verify your email!</h3>
+        <p><strong>First, check the email address displayed above.</strong> This is the address you'll use to log in and recover your account. If it's incorrect, you can change it later in your account settings.</p>
+        <p style="margin-top: 15px;">These recovery codes are your backup way to access your account if you forget your password. <strong>This is the only time we'll show you these codes.</strong></p>
         <p>Store them somewhere safe, such as:</p>
         <ul>
             <li>A password manager (Bitwarden, 1Password, KeePass, etc.)</li>
@@ -156,7 +165,8 @@
     </div>
     
     <div class="btn-group">
-        <a href="{{ url_for('login') }}" class="btn">Continue to Login</a>
+        <a href="{{ url_for('settings') }}" class="btn" style="background: #ff9800; margin-bottom: 10px;">Change Email Now</a>
+        <a href="{{ url_for('index') }}" class="btn">Continue to Home</a>
     </div>
 </div>
 {% endblock %}
