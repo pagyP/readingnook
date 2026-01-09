@@ -1145,3 +1145,170 @@ class TestBookLookupEndpoint:
         
         # Should return 405 Method Not Allowed
         assert response.status_code == 405
+
+
+class TestAccountSettings:
+    """Tests for account settings and email change functionality."""
+    
+    def test_settings_page_requires_login(self, client):
+        """Test that settings page requires authentication."""
+        response = client.get('/settings')
+        assert response.status_code == 302  # Redirect to login
+        assert 'login' in response.location
+    
+    def test_settings_page_loads(self, auth_user):
+        """Test that authenticated user can access settings page."""
+        client, user = auth_user
+        response = client.get('/settings')
+        assert response.status_code == 200
+        assert b'Account Settings' in response.data
+        assert user.email.encode() in response.data  # Current email displayed
+    
+    def test_change_email_success(self, auth_user):
+        """Test successfully changing email with correct password."""
+        client, user = auth_user
+        old_email = user.email
+        
+        response = client.post('/settings', data={
+            'new_email': 'newemail@example.com',
+            'password': 'TestPass123!'
+        }, follow_redirects=True)
+        
+        assert response.status_code == 200
+        assert b'Email updated successfully!' in response.data
+        
+        # Verify email changed in database
+        with app.app_context():
+            updated_user = User.query.get(user.id)
+            assert updated_user.email == 'newemail@example.com'
+            assert updated_user.email != old_email
+    
+    def test_change_email_wrong_password(self, auth_user):
+        """Test that email change fails with incorrect password."""
+        client, user = auth_user
+        original_email = user.email
+        
+        response = client.post('/settings', data={
+            'new_email': 'newemail@example.com',
+            'password': 'WrongPassword123!'
+        })
+        
+        assert response.status_code == 200
+        assert b'Invalid password' in response.data
+        
+        # Verify email did not change
+        with app.app_context():
+            updated_user = User.query.get(user.id)
+            assert updated_user.email == original_email
+    
+    def test_change_email_duplicate_email(self, client):
+        """Test that email change fails if new email is already registered."""
+        # Create two users
+        with app.app_context():
+            user1 = User(username='user1', email='user1@example.com')
+            user1.set_password('TestPass123!')
+            user2 = User(username='user2', email='user2@example.com')
+            user2.set_password('TestPass123!')
+            db.session.add(user1)
+            db.session.add(user2)
+            db.session.commit()
+        
+        # Try to change user1's email to user2's email
+        client.post('/login', data={
+            'email': 'user1@example.com',
+            'password': 'TestPass123!'
+        })
+        
+        response = client.post('/settings', data={
+            'new_email': 'user2@example.com',
+            'password': 'TestPass123!'
+        })
+        
+        assert response.status_code == 200
+        assert b'Email already registered' in response.data
+    
+    def test_change_email_same_as_current(self, auth_user):
+        """Test that email change fails if new email is same as current."""
+        client, user = auth_user
+        
+        response = client.post('/settings', data={
+            'new_email': user.email,
+            'password': 'TestPass123!'
+        })
+        
+        assert response.status_code == 200
+        assert b'must be different from current email' in response.data
+    
+    def test_recovery_codes_page_shows_email(self, client):
+        """Test that recovery codes page displays email address."""
+        with app.app_context():
+            user = User(username='testuser', email='verify@example.com')
+            user.set_password('TestPass123!')
+            db.session.add(user)
+            db.session.flush()
+            
+            recovery_codes = generate_recovery_codes(user.id, count=8)
+            db.session.commit()
+            
+            # Generate display token
+            from app import generate_recovery_code_display_token
+            token = generate_recovery_code_display_token(user.id, recovery_codes)
+        
+        # Simulate POST registration flow
+        with client.session_transaction() as sess:
+            sess['recovery_code_token'] = token
+        
+        response = client.get('/recovery-codes')
+        assert response.status_code == 200
+        assert b'verify@example.com' in response.data
+        assert b'Account Email:' in response.data
+    
+    def test_registration_logs_user_in(self, client):
+        """Test that registration automatically logs user in."""
+        response = client.post('/register', data={
+            'username': 'newuser',
+            'email': 'newuser@example.com',
+            'password': 'TestPass123!',
+            'confirm_password': 'TestPass123!'
+        }, follow_redirects=False)
+        
+        # Should redirect to recovery codes (not login)
+        assert response.status_code == 302
+        assert 'recovery-codes' in response.location
+        
+        # Follow the redirect
+        response = client.get(response.location)
+        assert response.status_code == 200
+        assert b'newuser@example.com' in response.data
+    
+    def test_can_change_email_after_registration(self, client):
+        """Test complete flow: register, view recovery codes, change email."""
+        # Register
+        response = client.post('/register', data={
+            'username': 'newuser',
+            'email': 'typo@example.com',
+            'password': 'TestPass123!',
+            'confirm_password': 'TestPass123!'
+        }, follow_redirects=True)
+        
+        assert response.status_code == 200
+        assert b'typo@example.com' in response.data
+        
+        # At this point user should be logged in, so we can go to settings
+        response = client.get('/settings')
+        assert response.status_code == 200
+        assert b'typo@example.com' in response.data
+        
+        # Change email
+        response = client.post('/settings', data={
+            'new_email': 'correct@example.com',
+            'password': 'TestPass123!'
+        }, follow_redirects=True)
+        
+        assert response.status_code == 200
+        assert b'Email updated successfully!' in response.data
+        
+        # Verify new email is shown
+        with app.app_context():
+            user = User.query.filter_by(username='newuser').first()
+            assert user.email == 'correct@example.com'

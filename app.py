@@ -527,6 +527,21 @@ class LoginForm(FlaskForm):
     password = PasswordField('Password', validators=[DataRequired()])
     submit = SubmitField('Log In')
 
+class ChangeEmailForm(FlaskForm):
+    new_email = StringField('New Email', validators=[
+        DataRequired(),
+        Email(message='Invalid email address.')
+    ])
+    password = PasswordField('Current Password', validators=[DataRequired()])
+    submit = SubmitField('Change Email')
+    
+    def validate_new_email(self, new_email):
+        if new_email.data == current_user.email:
+            raise ValidationError('New email must be different from current email.')
+        user = User.query.filter_by(email=new_email.data).first()
+        if user:
+            raise ValidationError('Email already registered.')
+
 class BookForm(FlaskForm):
     title = StringField('Title', validators=[
         DataRequired(),
@@ -635,7 +650,11 @@ def register():
             cleanup_expired_recovery_codes()
             
             app.logger.info(f'New user account created: {user.username}')
-            flash('Account created successfully! Save your recovery codes and then log in.', 'success')
+            flash('Account created successfully! Save your recovery codes.', 'success')
+            
+            # Log the user in so they can access settings if they need to fix their email
+            login_user(user, remember=True)
+            session.permanent = True
             
             # Redirect to recovery codes display page
             return redirect(url_for('show_recovery_codes'))
@@ -660,7 +679,7 @@ def login():
         user = User.query.filter_by(email=form.email.data).first()
         
         if user and user.check_password(form.password.data):
-            login_user(user)
+            login_user(user, remember=True)
             app.logger.info(f'User logged in successfully: {user.username}')
             flash(f'Welcome back, {user.username}!', 'success')
             return redirect(url_for('index'))
@@ -679,6 +698,39 @@ def logout():
     app.logger.info(f'User logged out: {username}')
     flash('You have been logged out.', 'success')
     return redirect(url_for('login'))
+
+@app.route('/settings', methods=['GET', 'POST'])
+@login_required
+@limiter.limit("10 per hour")  # Rate limit email changes to prevent abuse
+def settings():
+    """Account settings page where users can change their email.
+    
+    Security:
+    - Requires password verification before email change
+    - Rate limited to 10 changes per hour per IP
+    - Logs all email changes for audit trail
+    - Prevents email duplication
+    """
+    form = ChangeEmailForm()
+    
+    if form.validate_on_submit():
+        # Verify password before allowing email change
+        if not current_user.check_password(form.password.data):
+            app.logger.warning(f'Failed email change attempt - invalid password for user: {current_user.username}')
+            flash('Invalid password. Email not changed.', 'error')
+            return render_template('settings.html', form=form)
+        
+        # Update email
+        old_email = current_user.email
+        current_user.email = form.new_email.data
+        db.session.commit()
+        
+        # Log the change
+        app.logger.info(f'User {current_user.username} changed email from {old_email} to {current_user.email}')
+        flash('Email updated successfully!', 'success')
+        return redirect(url_for('settings'))
+    
+    return render_template('settings.html', form=form)
 
 @app.route('/recovery-codes')
 def show_recovery_codes():
