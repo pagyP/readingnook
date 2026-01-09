@@ -971,12 +971,16 @@ def edit_book(id):
             
             # Get and validate cover_url from form data if provided (from ISBN lookup)
             cover_url_raw = request.form.get('cover_url', '').strip() or None
-            try:
-                cover_url = validate_cover_url(cover_url_raw)
-            except ValueError as e:
-                # Log the attempt and show generic error to user
-                app.logger.warning(f'Invalid cover URL rejected during edit: {str(e)}')
-                flash('Invalid cover URL provided. Using existing cover image.', 'warning')
+            if cover_url_raw:
+                try:
+                    cover_url = validate_cover_url(cover_url_raw)
+                except ValueError as e:
+                    # Log the attempt and show generic error to user
+                    app.logger.warning(f'Invalid cover URL rejected during edit: {str(e)}')
+                    flash('Invalid cover URL provided. Using existing cover image.', 'warning')
+                    cover_url = book.cover_url
+            else:
+                # No cover_url in form data, keep existing cover_url
                 cover_url = book.cover_url
             
             book.title = form.title.data

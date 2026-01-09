@@ -199,11 +199,11 @@
             </div>
 
             <!-- Book cover preview section -->
-            <div id="coverPreviewSection" class="form-group" style="display: none;">
+            <div id="coverPreviewSection" class="form-group" style="{% if book.cover_url %}display: block;{% else %}display: none;{% endif %}">
                 <label>Book Cover</label>
                 <div style="text-align: center;">
-                    <img id="coverPreviewImage" src="" alt="Book cover" style="max-width: 120px; max-height: 200px; border-radius: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                    <input type="hidden" id="coverUrlInput" name="cover_url" value="">
+                    <img id="coverPreviewImage" src="{% if book.cover_url %}{{ book.cover_url }}{% endif %}" alt="Book cover" style="max-width: 120px; max-height: 200px; border-radius: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                    <input type="hidden" id="coverUrlInput" name="cover_url" value="{% if book.cover_url %}{{ book.cover_url }}{% endif %}">
                 </div>
             </div>
             

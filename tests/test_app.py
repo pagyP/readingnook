@@ -244,6 +244,28 @@ class TestBookRoutes:
         assert response.status_code == 200
         assert b'Edit Book' in response.data
     
+    def test_edit_book_page_displays_existing_cover(self, auth_user):
+        """Test that edit book page displays existing cover image."""
+        client, user = auth_user
+        
+        cover_url = 'https://covers.openlibrary.org/b/id/99999-M.jpg'
+        with app.app_context():
+            book = Book(
+                title='Book With Cover',
+                author='Test Author',
+                user_id=user.id,
+                cover_url=cover_url
+            )
+            db.session.add(book)
+            db.session.commit()
+            book_id = book.id
+        
+        response = client.get(f'/edit/{book_id}')
+        assert response.status_code == 200
+        assert b'Edit Book' in response.data
+        # Verify the cover URL is in the page (in the hidden input and img src)
+        assert cover_url.encode() in response.data
+    
     def test_edit_book_success(self, auth_user):
         """Test editing a book."""
         client, user = auth_user
@@ -271,6 +293,70 @@ class TestBookRoutes:
             assert book.genre == 'Mystery'
             assert book.format == 'ebook'
             assert book.rating == 4
+    
+    def test_edit_book_preserves_cover_url(self, auth_user):
+        """Test that editing a book preserves the cover image when not changed."""
+        client, user = auth_user
+        
+        # Create a book with a cover URL
+        original_cover_url = 'https://covers.openlibrary.org/b/id/12345-M.jpg'
+        with app.app_context():
+            book = Book(
+                title='Original Title',
+                author='Original Author',
+                user_id=user.id,
+                cover_url=original_cover_url
+            )
+            db.session.add(book)
+            db.session.commit()
+            book_id = book.id
+        
+        # Edit the book without changing the cover URL
+        response = client.post(f'/edit/{book_id}', data={
+            'title': 'Updated Title',
+            'author': 'Updated Author',
+            'format': 'physical',
+            'cover_url': original_cover_url  # Send the existing cover URL
+        }, follow_redirects=True)
+        assert response.status_code == 200
+        
+        # Verify the cover URL is preserved
+        with app.app_context():
+            book = db.get_or_404(Book, book_id)
+            assert book.cover_url == original_cover_url
+            assert book.title == 'Updated Title'
+    
+    def test_edit_book_without_cover_url_preserves_existing(self, auth_user):
+        """Test that editing a book without providing cover_url keeps existing image."""
+        client, user = auth_user
+        
+        # Create a book with a cover URL
+        original_cover_url = 'https://covers.openlibrary.org/b/id/67890-M.jpg'
+        with app.app_context():
+            book = Book(
+                title='Book with Cover',
+                author='Test Author',
+                user_id=user.id,
+                cover_url=original_cover_url
+            )
+            db.session.add(book)
+            db.session.commit()
+            book_id = book.id
+        
+        # Edit the book WITHOUT providing cover_url in the form data
+        response = client.post(f'/edit/{book_id}', data={
+            'title': 'Updated Title Without Cover',
+            'author': 'Updated Author',
+            'format': 'ebook'
+            # Note: no cover_url field in the form data
+        }, follow_redirects=True)
+        assert response.status_code == 200
+        
+        # Verify the cover URL is still preserved
+        with app.app_context():
+            book = db.get_or_404(Book, book_id)
+            assert book.cover_url == original_cover_url
+            assert book.title == 'Updated Title Without Cover'
     
     def test_delete_book(self, auth_user):
         """Test deleting a book."""
