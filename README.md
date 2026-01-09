@@ -20,13 +20,16 @@ A simple Flask web application to track and record the books you've read.
 - ✏️ Edit book entries
 - 🗑️ Delete books from your collection
 - 📊 View all your books in a beautiful grid layout
-- 🔐 Password-less account recovery using recovery codes
+- 🔐 **Password-less account recovery** - Recover accounts using recovery codes (no email required)
+- ⚙️ **Account settings** - Change email address with password verification
+- 🎨 **Warm library aesthetic** - Cosy, literary-inspired design with warm browns and serif typography
+- ♿ **Accessible design** - WCAG AA/AAA compliant color contrast and responsive layouts
 
 ## Installation
 
 1. **Clone or create the project:**
    ```bash
-   git clonehttps://github.com/pagyP/readingnook.git
+   git clone https://github.com/pagyP/readingnook.git
    cd readingnook
    ```
 
@@ -65,7 +68,7 @@ A simple Flask web application to track and record the books you've read.
 
 3. **Open your browser** and navigate to:
    ```
-   http://localhost:5000
+   http://localhost:8000
    ```
 
 4. **Create an account** or log in with existing credentials
@@ -75,27 +78,53 @@ A simple Flask web application to track and record the books you've read.
 ✅ **User Authentication** - Create accounts with secure password hashing  
 ✅ **Password Hashing** - Passwords hashed using Argon2 (memory-hard, GPU-resistant)  
 ✅ **Account Recovery** - Recover lost passwords using single-use recovery codes (no email required)  
-✅ **Session Management** - Secure session handling with Flask-Login  
+✅ **Session Management** - Secure session handling with Flask-Login and 24-hour persistent timeout  
 ✅ **CSRF Protection** - All forms protected with CSRF tokens via Flask-WTF  
 ✅ **Data Isolation** - Users can only see and edit their own books  
 ✅ **Environment Variables** - Secret key stored in .env (not committed to git)  
 ✅ **Form Validation** - Email format and password confirmation validation  
-✅ **Rate Limiting** - Login attempts limited to 5 per minute to prevent brute force  
-✅ **Security Logging** - All authentication events logged for audit trail
+✅ **Rate Limiting** - Login attempts limited to 5 per minute to prevent brute force; email changes limited to 10 per hour  
+✅ **Security Logging** - All authentication events logged for audit trail  
+✅ **Email Security** - Email display on signup prevents user lockout from typos; settings page allows secure email changes with password verification  
+✅ **Accessibility** - WCAG AA/AAA color contrast standards for inclusive design (7:1+ contrast ratios)
 
 ## Project Structure
 
 ```
 readingnook/
-├── app.py              # Main Flask application and routes
-├── requirements.txt    # Python dependencies
-├── README.md          # This file
-├── .gitignore         # Git ignore rules
-└── templates/         # HTML templates
-    ├── base.html      # Base template with styling
-    ├── index.html     # Home page (list of books)
-    ├── add_book.html  # Form to add a new book
-    └── edit_book.html # Form to edit a book
+├── app.py                    # Main Flask application and routes
+├── requirements.txt          # Python dependencies
+├── README.md                 # This file
+├── .gitignore                # Git ignore rules
+├── LICENSE                   # MIT License
+├── Dockerfile                # Docker container definition
+├── docker-compose.yml        # Docker Compose for development
+├── docker-compose.prod.yml   # Docker Compose for production
+├── nginx.conf                # Nginx configuration for production
+├── DOCKER_DEPLOYMENT.md      # Docker and deployment guide
+├── RECOVERY_CODES.md         # Password recovery documentation
+├── RECOVERY_CODE_SECURITY.md # Recovery code security details
+├── SECURITY_HARDENING.md     # Security best practices
+├── OPEN_LIBRARY_INTEGRATION.md # ISBN lookup feature guide
+├── static/
+│   └── images/
+│       └── cosy-library.jpg   # Background image
+├── templates/
+│   ├── base.html             # Base template with styling
+│   ├── index.html            # Home page (book list)
+│   ├── login.html            # Login page
+│   ├── register.html         # Registration page
+│   ├── add_book.html         # Form to add a new book
+│   ├── edit_book.html        # Form to edit a book
+│   ├── settings.html         # Account settings (email change)
+│   ├── recovery_codes.html   # Display recovery codes
+│   ├── forgot_password.html  # Password recovery entry point
+│   ├── reset_password.html   # Password reset form
+│   └── isbn_lookup_script.html # ISBN lookup helper
+└── tests/
+    ├── conftest.py           # Pytest configuration
+    ├── test_app.py           # Comprehensive test suite
+    └── __init__.py
 ```
 
 ## Usage
@@ -110,8 +139,17 @@ readingnook/
 1. Click "Log In" on the home page
 2. Enter your email and password
 3. You'll be logged in and can start adding books
+4. Your session will persist for 24 hours even if you close your browser
 
-### Forgot Your Password?
+### Account Settings
+1. Click "Settings" in the top navigation (when logged in)
+2. View your registered email address
+3. To change your email: Enter your new email and confirm your password
+4. Email changes are rate-limited to 10 per hour for security
+5. Your new email will be used for future logins
+
+### Logging Out
+1. Click "Logout" in the top right navigation
 1. On the login page, click "Recover your account"
 2. Enter your email address and one of your recovery codes (saved during account creation)
 3. Set a new password
@@ -135,10 +173,20 @@ readingnook/
 1. On the home page, click "Delete" on any book card
 2. Confirm the deletion
 
-### Logging Out
-1. Click "Logout" in the top right navigation
+## Design & Accessibility
 
-## Documentation
+**Warm Library Aesthetic** - The application features a cosy, literary-inspired design with:
+- Warm color palette (cream, brown, gold) evoking a personal library
+- Georgia serif typography for a literary feel
+- Responsive grid layout for books
+- Bookshelf background with adjustable opacity
+
+**Accessibility Standards** - Meets WCAG AA/AAA compliance:
+- 7:1+ color contrast ratios for text readability
+- Responsive design that works on all device sizes
+- Semantic HTML structure
+- Form validation with clear error messages
+- Rate limiting to prevent user frustration from failed attempts
 
 - **[RECOVERY_CODES.md](RECOVERY_CODES.md)** - Complete guide to password recovery using recovery codes
 - **[OPEN_LIBRARY_INTEGRATION.md](OPEN_LIBRARY_INTEGRATION.md)** - ISBN lookup and auto-fill feature guide
@@ -147,14 +195,15 @@ readingnook/
 ## Future Enhancements
 
 Consider adding:
-- Book covers/images
-- Genre/categories
+- Book covers/images  
+- Genre/categories (enhanced categorization)
 - Reading progress tracking
-- Search and filter functionality (✅ Already implemented!)
 - Statistics and reading goals
-- Self-service recovery code regeneration
 - Email notifications for security events
 - Book recommendations based on reading history
+- Export reading history (CSV, PDF)
+- Social features (share lists, follow other readers)
+- Book club features
 
 ## Technologies Used
 
