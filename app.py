@@ -660,7 +660,7 @@ def login():
         user = User.query.filter_by(email=form.email.data).first()
         
         if user and user.check_password(form.password.data):
-            login_user(user)
+            login_user(user, remember=True)
             app.logger.info(f'User logged in successfully: {user.username}')
             flash(f'Welcome back, {user.username}!', 'success')
             return redirect(url_for('index'))
