@@ -113,6 +113,41 @@ When you run the app for the first time with these changes:
 3. **Zero Data Loss**: No existing book data is affected
 4. **SQLAlchemy Handles It**: `db.create_all()` in `init_db.py` will update the schema automatically
 
+### Deployment: Keeping Existing Data
+
+For **production deployments** where you want to preserve existing data without recreating the database:
+
+**Option 1: Clean Restart (if downtime is acceptable)**
+```bash
+docker compose down -v
+docker compose up
+```
+This removes the old database and creates a new one with the correct schema. All previous data will be lost.
+
+**Option 2: Zero-Downtime Migration (recommended for production)**
+
+Add the `status` column to the existing PostgreSQL database without losing data:
+
+```bash
+docker exec readingnook_db psql -U readingnook -d readingnook -c "ALTER TABLE book ADD COLUMN status VARCHAR(20) DEFAULT 'read';"
+docker compose restart readingnook_app
+```
+
+This approach:
+- ✅ Keeps all existing book data intact
+- ✅ Assigns `'read'` status to all existing books
+- ✅ Minimizes downtime (only app restart needed)
+- ✅ Safe to run on production
+
+**For SQLite (local development):**
+```bash
+# Delete old database to start fresh
+rm readingnook.db
+python3 init_db.py
+```
+
+Or run the app normally - `db.create_all()` will create the new schema on startup.
+
 ---
 
 ## ✅ Testing Your Feature
