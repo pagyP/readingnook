@@ -54,6 +54,21 @@
         box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
     }
     
+    .search-form-select {
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 1em;
+        background-color: white;
+        cursor: pointer;
+    }
+    
+    .search-form-select:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+    }
+    
     .search-form button {
         padding: 10px 20px;
     }
@@ -265,16 +280,50 @@
         color: #667eea;
         font-size: 1.3em;
     }
+    
+    .book-status-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8em;
+        font-weight: 600;
+        margin-bottom: 8px;
+        margin-right: 8px;
+    }
+    
+    .book-status-badge.to-read {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+    }
+    
+    .book-status-badge.currently-reading {
+        background-color: #d1ecf1;
+        color: #0c5460;
+        border: 1px solid #bee5eb;
+    }
+    
+    .book-status-badge.read {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-    {% if books or search_query %}
+    {% if books or search_query or status_filter != 'all' %}
         <div class="search-container">
             <form method="GET" class="search-form">
                 <input type="text" name="search" placeholder="Search by title, author, ISBN, or genre..." value="{{ search_query }}">
+                <select name="status" class="search-form-select">
+                    <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Books</option>
+                    <option value="to_read" {% if status_filter == 'to_read' %}selected{% endif %}>📚 To Read</option>
+                    <option value="currently_reading" {% if status_filter == 'currently_reading' %}selected{% endif %}>📖 Currently Reading</option>
+                    <option value="read" {% if status_filter == 'read' %}selected{% endif %}>✓ Read</option>
+                </select>
                 <button type="submit" class="btn btn-primary">Search</button>
-                {% if search_query %}
+                {% if search_query or status_filter != 'all' %}
                     <a href="{{ url_for('index') }}" class="btn btn-secondary">Clear</a>
                 {% endif %}
             </form>
@@ -282,10 +331,19 @@
         
         {% if books %}
             <div class="stats">
-                {% if search_query %}
+                {% if search_query and status_filter != 'all' %}
                     Found <strong>{{ books|length }}</strong> book{{ 's' if books|length != 1 else '' }} matching "{{ search_query }}"
+                    {% if status_filter == 'to_read' %}in your To Read list{% elif status_filter == 'currently_reading' %}that you're currently reading{% elif status_filter == 'read' %}that you've read{% endif %}
+                {% elif search_query %}
+                    Found <strong>{{ books|length }}</strong> book{{ 's' if books|length != 1 else '' }} matching "{{ search_query }}"
+                {% elif status_filter == 'to_read' %}
+                    📚 <strong>{{ books|length }}</strong> book{{ 's' if books|length != 1 else '' }} to read
+                {% elif status_filter == 'currently_reading' %}
+                    📖 Currently reading <strong>{{ books|length }}</strong> book{{ 's' if books|length != 1 else '' }}
+                {% elif status_filter == 'read' %}
+                    ✓ You've read <strong>{{ books|length }}</strong> book{{ 's' if books|length != 1 else '' }}
                 {% else %}
-                    📖 You've read <strong>{{ books|length }}</strong> book{{ 's' if books|length != 1 else '' }}
+                    📖 <strong>{{ books|length }}</strong> book{{ 's' if books|length != 1 else '' }} in your library
                 {% endif %}
             </div>
             
@@ -305,6 +363,18 @@
                         <div class="book-card-content">
                             <h3>{{ book.title }}</h3>
                             <div class="author">by {{ book.author }}</div>
+                            
+                            <!-- Status Badge -->
+                            <div>
+                                {% if book.status == 'to_read' %}
+                                    <span class="book-status-badge to-read">📚 To Read</span>
+                                {% elif book.status == 'currently_reading' %}
+                                    <span class="book-status-badge currently-reading">📖 Currently Reading</span>
+                                {% else %}
+                                    <span class="book-status-badge read">✓ Read</span>
+                                {% endif %}
+                            </div>
+                            
                             {% if book.isbn %}
                                 <div style="font-size: 0.85em; color: #999; margin-bottom: 8px;">ISBN: {{ book.isbn }}</div>
                             {% endif %}

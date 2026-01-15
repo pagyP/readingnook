@@ -199,6 +199,7 @@ class TestBookRoutes:
             'isbn': '978-0-123456-78-9',
             'genre': 'Fiction',
             'format': 'physical',
+            'status': 'read',
             'date_read': '2025-12-30',
             'rating': '5',
             'notes': 'A great book!'
@@ -212,6 +213,7 @@ class TestBookRoutes:
             assert book.isbn == '978-0-123456-78-9'
             assert book.genre == 'Fiction'
             assert book.format == 'physical'
+            assert book.status == 'read'
             assert book.rating == 5
     
     def test_add_book_minimal(self, auth_user):
@@ -221,6 +223,7 @@ class TestBookRoutes:
             'title': 'Minimal Book',
             'author': 'Some Author',
             'format': 'physical',
+            'status': 'read',
             'date_read': '2025-12-30'
         }, follow_redirects=True)
         assert response.status_code == 200
@@ -229,6 +232,7 @@ class TestBookRoutes:
             book = Book.query.filter_by(title='Minimal Book').first()
             assert book is not None
             assert book.format == 'physical'
+            assert book.status == 'read'
     
     def test_edit_book_page_loads(self, auth_user):
         """Test that edit book page loads."""
@@ -281,6 +285,7 @@ class TestBookRoutes:
             'author': 'Updated Author',
             'genre': 'Mystery',
             'format': 'ebook',
+            'status': 'read',
             'date_read': '2025-12-30',
             'rating': '4'
         }, follow_redirects=True)
@@ -316,6 +321,7 @@ class TestBookRoutes:
             'title': 'Updated Title',
             'author': 'Updated Author',
             'format': 'physical',
+            'status': 'read',
             'cover_url': original_cover_url  # Send the existing cover URL
         }, follow_redirects=True)
         assert response.status_code == 200
@@ -347,7 +353,8 @@ class TestBookRoutes:
         response = client.post(f'/edit/{book_id}', data={
             'title': 'Updated Title Without Cover',
             'author': 'Updated Author',
-            'format': 'ebook'
+            'format': 'ebook',
+            'status': 'read'
             # Note: no cover_url field in the form data
         }, follow_redirects=True)
         assert response.status_code == 200
@@ -1348,6 +1355,294 @@ class TestAccountSettings:
         assert response.status_code == 200
         assert b'verify@example.com' in response.data
         assert b'Account Email:' in response.data
+
+
+class TestTBRFeature:
+    """Test the To Be Read (TBR) feature and book status filtering."""
+    
+    def test_add_book_with_to_read_status(self, auth_user):
+        """Test adding a book with 'to_read' status."""
+        client, user = auth_user
+        response = client.post('/add', data={
+            'title': 'To Be Read Book',
+            'author': 'Future Author',
+            'format': 'physical',
+            'status': 'to_read'
+        }, follow_redirects=True)
+        
+        assert response.status_code == 200
+        
+        with app.app_context():
+            book = Book.query.filter_by(title='To Be Read Book').first()
+            assert book is not None
+            assert book.status == 'to_read'
+    
+    def test_add_book_with_currently_reading_status(self, auth_user):
+        """Test adding a book with 'currently_reading' status."""
+        client, user = auth_user
+        response = client.post('/add', data={
+            'title': 'Currently Reading Book',
+            'author': 'Active Author',
+            'format': 'ebook',
+            'status': 'currently_reading'
+        }, follow_redirects=True)
+        
+        assert response.status_code == 200
+        
+        with app.app_context():
+            book = Book.query.filter_by(title='Currently Reading Book').first()
+            assert book is not None
+            assert book.status == 'currently_reading'
+    
+    def test_add_book_with_read_status(self, auth_user):
+        """Test adding a book with 'read' status."""
+        client, user = auth_user
+        response = client.post('/add', data={
+            'title': 'Finished Book',
+            'author': 'Past Author',
+            'format': 'audiobook',
+            'status': 'read'
+        }, follow_redirects=True)
+        
+        assert response.status_code == 200
+        
+        with app.app_context():
+            book = Book.query.filter_by(title='Finished Book').first()
+            assert book is not None
+            assert book.status == 'read'
+    
+    def test_edit_book_change_status(self, auth_user):
+        """Test editing a book to change its status."""
+        client, user = auth_user
+        
+        # First add a book with 'to_read' status
+        with app.app_context():
+            book = Book(
+                title='Status Change Book',
+                author='Test Author',
+                format='physical',
+                status='to_read',
+                user_id=user.id
+            )
+            db.session.add(book)
+            db.session.commit()
+            book_id = book.id
+        
+        # Edit the book to change status to 'read'
+        response = client.post(f'/edit/{book_id}', data={
+            'title': 'Status Change Book',
+            'author': 'Test Author',
+            'format': 'physical',
+            'status': 'read'
+        }, follow_redirects=True)
+        
+        assert response.status_code == 200
+        
+        with app.app_context():
+            updated_book = Book.query.get(book_id)
+            assert updated_book.status == 'read'
+    
+    def test_filter_books_by_to_read_status(self, auth_user):
+        """Test filtering books to show only 'to_read' status."""
+        client, user = auth_user
+        
+        # Create books with different statuses
+        with app.app_context():
+            book1 = Book(title='TBR Book 1', author='Author 1', format='physical', status='to_read', user_id=user.id)
+            book2 = Book(title='TBR Book 2', author='Author 2', format='physical', status='to_read', user_id=user.id)
+            book3 = Book(title='Read Book', author='Author 3', format='physical', status='read', user_id=user.id)
+            db.session.add_all([book1, book2, book3])
+            db.session.commit()
+        
+        # Filter by 'to_read'
+        response = client.get('/?status=to_read')
+        assert response.status_code == 200
+        assert b'TBR Book 1' in response.data
+        assert b'TBR Book 2' in response.data
+        assert b'Read Book' not in response.data
+    
+    def test_filter_books_by_currently_reading_status(self, auth_user):
+        """Test filtering books to show only 'currently_reading' status."""
+        client, user = auth_user
+        
+        # Create books with different statuses
+        with app.app_context():
+            book1 = Book(title='Reading Now 1', author='Author 1', format='physical', status='currently_reading', user_id=user.id)
+            book2 = Book(title='Reading Now 2', author='Author 2', format='physical', status='currently_reading', user_id=user.id)
+            book3 = Book(title='Read Book', author='Author 3', format='physical', status='read', user_id=user.id)
+            db.session.add_all([book1, book2, book3])
+            db.session.commit()
+        
+        # Filter by 'currently_reading'
+        response = client.get('/?status=currently_reading')
+        assert response.status_code == 200
+        assert b'Reading Now 1' in response.data
+        assert b'Reading Now 2' in response.data
+        assert b'Read Book' not in response.data
+    
+    def test_filter_books_by_read_status(self, auth_user):
+        """Test filtering books to show only 'read' status."""
+        client, user = auth_user
+        
+        # Create books with different statuses
+        with app.app_context():
+            book1 = Book(title='Read Book 1', author='Author 1', format='physical', status='read', user_id=user.id)
+            book2 = Book(title='Read Book 2', author='Author 2', format='physical', status='read', user_id=user.id)
+            book3 = Book(title='TBR Book', author='Author 3', format='physical', status='to_read', user_id=user.id)
+            db.session.add_all([book1, book2, book3])
+            db.session.commit()
+        
+        # Filter by 'read'
+        response = client.get('/?status=read')
+        assert response.status_code == 200
+        assert b'Read Book 1' in response.data
+        assert b'Read Book 2' in response.data
+        assert b'TBR Book' not in response.data
+    
+    def test_filter_all_status_shows_all_books(self, auth_user):
+        """Test that 'all' status filter shows all books regardless of status."""
+        client, user = auth_user
+        
+        # Create books with different statuses
+        with app.app_context():
+            book1 = Book(title='TBR Book', author='Author 1', format='physical', status='to_read', user_id=user.id)
+            book2 = Book(title='Reading Book', author='Author 2', format='physical', status='currently_reading', user_id=user.id)
+            book3 = Book(title='Read Book', author='Author 3', format='physical', status='read', user_id=user.id)
+            db.session.add_all([book1, book2, book3])
+            db.session.commit()
+        
+        # Filter by 'all'
+        response = client.get('/?status=all')
+        assert response.status_code == 200
+        assert b'TBR Book' in response.data
+        assert b'Reading Book' in response.data
+        assert b'Read Book' in response.data
+    
+    def test_search_combined_with_status_filter(self, auth_user):
+        """Test searching for books within a specific status."""
+        client, user = auth_user
+        
+        # Create books with different statuses and titles
+        with app.app_context():
+            book1 = Book(title='Fiction to Read', author='Author 1', format='physical', status='to_read', user_id=user.id)
+            book2 = Book(title='Mystery Novel', author='Author 2', format='physical', status='to_read', user_id=user.id)
+            book3 = Book(title='Fiction Read', author='Author 3', format='physical', status='read', user_id=user.id)
+            db.session.add_all([book1, book2, book3])
+            db.session.commit()
+        
+        # Search for 'Fiction' in 'to_read' status
+        response = client.get('/?search=Fiction&status=to_read')
+        assert response.status_code == 200
+        assert b'Fiction to Read' in response.data
+        assert b'Mystery Novel' not in response.data
+        assert b'Fiction Read' not in response.data
+    
+    def test_default_status_for_new_books_is_read(self, auth_user):
+        """Test that books created before status field get 'read' as default."""
+        client, user = auth_user
+        
+        # Add book without explicitly setting status (mimics older books)
+        with app.app_context():
+            book = Book(
+                title='Legacy Book',
+                author='Legacy Author',
+                format='physical',
+                user_id=user.id
+            )
+            db.session.add(book)
+            db.session.commit()
+            book_id = book.id
+        
+        # Verify default status is 'read'
+        with app.app_context():
+            book = Book.query.get(book_id)
+            assert book.status == 'read'
+    
+    def test_status_filter_respects_user_isolation(self, auth_user):
+        """Test that status filter only shows books for the logged-in user."""
+        client, user = auth_user
+        
+        # Create books for current user
+        with app.app_context():
+            user_book = Book(title='User TBR Book', author='Author 1', format='physical', status='to_read', user_id=user.id)
+            db.session.add(user_book)
+            
+            # Create another user and their book
+            other_user = User(username='otheruser', email='other@example.com')
+            other_user.set_password('Password123!')
+            db.session.add(other_user)
+            db.session.flush()
+            
+            other_book = Book(title='Other User TBR', author='Author 2', format='physical', status='to_read', user_id=other_user.id)
+            db.session.add(other_book)
+            db.session.commit()
+        
+        # Filter by 'to_read' - should only show current user's books
+        response = client.get('/?status=to_read')
+        assert response.status_code == 200
+        assert b'User TBR Book' in response.data
+        assert b'Other User TBR' not in response.data
+    
+    def test_no_status_filter_defaults_to_all(self, auth_user):
+        """Test that not providing a status filter shows all books."""
+        client, user = auth_user
+        
+        # Create books with different statuses
+        with app.app_context():
+            book1 = Book(title='TBR', author='Author 1', format='physical', status='to_read', user_id=user.id)
+            book2 = Book(title='Reading', author='Author 2', format='physical', status='currently_reading', user_id=user.id)
+            book3 = Book(title='Read', author='Author 3', format='physical', status='read', user_id=user.id)
+            db.session.add_all([book1, book2, book3])
+            db.session.commit()
+        
+        # Access home page without status filter
+        response = client.get('/')
+        assert response.status_code == 200
+        assert b'TBR' in response.data
+        assert b'Reading' in response.data
+        assert b'Read' in response.data
+    
+    def test_invalid_status_filter_defaults_to_all(self, auth_user):
+        """Test that invalid status values are rejected and default to 'all'."""
+        client, user = auth_user
+        
+        # Create books with different statuses
+        with app.app_context():
+            book1 = Book(title='TBR Book', author='Author 1', format='physical', status='to_read', user_id=user.id)
+            book2 = Book(title='Read Book', author='Author 2', format='physical', status='read', user_id=user.id)
+            db.session.add_all([book1, book2])
+            db.session.commit()
+        
+        # Try to use an invalid status filter (e.g., 'invalid_status')
+        response = client.get('/?status=invalid_status')
+        assert response.status_code == 200
+        # Should show all books since invalid status defaults to 'all'
+        assert b'TBR Book' in response.data
+        assert b'Read Book' in response.data
+    
+    def test_sql_injection_attempt_on_status_filter(self, auth_user):
+        """Test that SQL injection attempts on status parameter are safely rejected."""
+        client, user = auth_user
+        
+        # Create a test book
+        with app.app_context():
+            book = Book(title='Test Book', author='Author', format='physical', status='read', user_id=user.id)
+            db.session.add(book)
+            db.session.commit()
+        
+        # Try SQL injection attempts - should be safely handled
+        dangerous_params = [
+            "'; DROP TABLE book; --",
+            "' OR '1'='1",
+            "\" OR 1=1 --",
+            "'; DELETE FROM book; --"
+        ]
+        
+        for param in dangerous_params:
+            response = client.get(f'/?status={param}')
+            # Should not execute any SQL injection, just return 200 with valid data
+            assert response.status_code == 200
+            assert b'Test Book' in response.data
     
     def test_registration_logs_user_in(self, client):
         """Test that registration automatically logs user in."""

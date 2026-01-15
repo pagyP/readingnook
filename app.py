@@ -371,7 +371,8 @@ class Book(db.Model):
     author = db.Column(db.String(200), nullable=False)
     isbn = db.Column(db.String(20))
     genre = db.Column(db.String(100))
-    format = db.Column(db.String(20), default='physical')  # 'physical' or 'ebook'
+    format = db.Column(db.String(20), default='physical')  # 'physical', 'ebook', or 'audiobook'
+    status = db.Column(db.String(20), default='read')  # 'to_read', 'currently_reading', or 'read'
     date_added = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     rating = db.Column(db.Integer)  # 1-5 stars
     notes = db.Column(db.Text)
@@ -559,6 +560,11 @@ class BookForm(FlaskForm):
         ('physical', 'Physical Book'),
         ('ebook', 'E-book'),
         ('audiobook', 'Audiobook')
+    ])
+    status = SelectField('Status', validators=[DataRequired()], choices=[
+        ('to_read', 'To Read'),
+        ('currently_reading', 'Currently Reading'),
+        ('read', 'Read')
     ])
     rating = IntegerField('Rating', validators=[
         Optional(),
@@ -884,21 +890,33 @@ def reset_password():
 @login_required
 def index():
     search_query = request.args.get('search', '').strip()
+    status_filter = request.args.get('status', 'all').strip()
     
+    # Validate status_filter to prevent invalid values
+    VALID_STATUSES = ('all', 'to_read', 'currently_reading', 'read')
+    if status_filter not in VALID_STATUSES:
+        status_filter = 'all'
+    
+    query = Book.query.filter_by(user_id=current_user.id)
+    
+    # Apply status filter
+    if status_filter and status_filter != 'all':
+        query = query.filter_by(status=status_filter)
+    
+    # Apply search filter
     if search_query:
-        # Search across title, author, ISBN, and genre
-        books = Book.query.filter_by(user_id=current_user.id).filter(
+        query = query.filter(
             db.or_(
                 Book.title.ilike(f'%{search_query}%'),
                 Book.author.ilike(f'%{search_query}%'),
                 Book.isbn.ilike(f'%{search_query}%'),
                 Book.genre.ilike(f'%{search_query}%')
             )
-        ).order_by(Book.date_added.desc()).all()
-    else:
-        books = Book.query.filter_by(user_id=current_user.id).order_by(Book.date_added.desc()).all()
+        )
     
-    return render_template('index.html', books=books, search_query=search_query)
+    books = query.order_by(Book.date_added.desc()).all()
+    
+    return render_template('index.html', books=books, search_query=search_query, status_filter=status_filter)
 
 @app.route('/add', methods=['GET', 'POST'])
 @login_required
@@ -931,6 +949,7 @@ def add_book():
                 isbn=form.isbn.data or None,
                 genre=form.genre.data or None,
                 format=form.format.data,
+                status=form.status.data,
                 rating=form.rating.data or None,
                 notes=form.notes.data or None,
                 date_added=date_added,
@@ -988,6 +1007,7 @@ def edit_book(id):
             book.isbn = form.isbn.data or None
             book.genre = form.genre.data or None
             book.format = form.format.data
+            book.status = form.status.data
             book.rating = form.rating.data or None
             book.notes = form.notes.data or None
             book.cover_url = cover_url
@@ -1006,6 +1026,7 @@ def edit_book(id):
         form.isbn.data = book.isbn
         form.genre.data = book.genre
         form.format.data = book.format
+        form.status.data = book.status
         form.rating.data = book.rating
         form.notes.data = book.notes
         if book.date_added:
