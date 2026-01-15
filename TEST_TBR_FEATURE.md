@@ -59,10 +59,29 @@ The app now includes a "To Be Read" (TBR) feature that lets you track books in t
 
 ## Database Migration
 
-When you first run the updated app:
-1. The database schema will be automatically updated with the new `status` column
+### Fresh Database Setup (New Deployments)
+
+When you first run the updated app with a fresh database:
+1. `db.create_all()` automatically creates the new `status` column
 2. All existing books will have `status = 'read'` by default
 3. No data will be lost
+
+### Existing Database Setup (Migration Required)
+
+⚠️ **Important**: For existing deployments with data, `db.create_all()` **does NOT alter existing tables**. You **MUST** manually add the `status` column or the app will fail.
+
+**To add the column to an existing PostgreSQL database:**
+
+```bash
+docker exec readingnook_db psql -U readingnook -d readingnook -c "ALTER TABLE book ADD COLUMN status VARCHAR(20) DEFAULT 'read';"
+```
+
+Or if using SQLite locally:
+```bash
+sqlite3 instance/readingnook.db "ALTER TABLE book ADD COLUMN status VARCHAR(20) DEFAULT 'read';"
+```
+
+If you skip this step, the app will fail with: `column "book"."status" does not exist`
 
 ## API Endpoint
 
