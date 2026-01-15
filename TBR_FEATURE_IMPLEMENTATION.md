@@ -106,12 +106,23 @@ https://yourapp.com/?                         # Show All books (default)
 
 ## 💾 Database Migration
 
-When you run the app for the first time with these changes:
+### Fresh Database Setup (New Deployments)
 
-1. **Automatic Schema Update**: The `status` column is added to the `books` table
-2. **Backward Compatible**: All existing books get `status = 'read'` by default
-3. **Zero Data Loss**: No existing book data is affected
-4. **SQLAlchemy Handles It**: `db.create_all()` in `init_db.py` will update the schema automatically
+For **new deployments with no existing data**:
+
+1. `db.create_all()` in `init_db.py` automatically creates the `books` table with the `status` column
+2. All existing books will have `status = 'read'` by default
+3. No manual migration steps needed
+4. Database is ready immediately
+
+### Existing Database Setup (Migration Required)
+
+⚠️ **Important**: `db.create_all()` **only creates tables that don't exist**. It **does NOT alter existing tables** to add new columns.
+
+If you deploy this change to an existing application with a database:
+- The `status` column will NOT be created automatically
+- The app will fail with: `psycopg.errors.UndefinedColumn: column "book"."status" does not exist`
+- You **MUST** manually add the column using one of the options below
 
 ### Deployment: Keeping Existing Data
 
