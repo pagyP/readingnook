@@ -892,6 +892,11 @@ def index():
     search_query = request.args.get('search', '').strip()
     status_filter = request.args.get('status', 'all').strip()
     
+    # Validate status_filter to prevent invalid values
+    VALID_STATUSES = ('all', 'to_read', 'currently_reading', 'read')
+    if status_filter not in VALID_STATUSES:
+        status_filter = 'all'
+    
     query = Book.query.filter_by(user_id=current_user.id)
     
     # Apply status filter

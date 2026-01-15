@@ -1602,6 +1602,48 @@ class TestTBRFeature:
         assert b'Reading' in response.data
         assert b'Read' in response.data
     
+    def test_invalid_status_filter_defaults_to_all(self, auth_user):
+        """Test that invalid status values are rejected and default to 'all'."""
+        client, user = auth_user
+        
+        # Create books with different statuses
+        with app.app_context():
+            book1 = Book(title='TBR Book', author='Author 1', format='physical', status='to_read', user_id=user.id)
+            book2 = Book(title='Read Book', author='Author 2', format='physical', status='read', user_id=user.id)
+            db.session.add_all([book1, book2])
+            db.session.commit()
+        
+        # Try to use an invalid status filter (e.g., 'invalid_status')
+        response = client.get('/?status=invalid_status')
+        assert response.status_code == 200
+        # Should show all books since invalid status defaults to 'all'
+        assert b'TBR Book' in response.data
+        assert b'Read Book' in response.data
+    
+    def test_sql_injection_attempt_on_status_filter(self, auth_user):
+        """Test that SQL injection attempts on status parameter are safely rejected."""
+        client, user = auth_user
+        
+        # Create a test book
+        with app.app_context():
+            book = Book(title='Test Book', author='Author', format='physical', status='read', user_id=user.id)
+            db.session.add(book)
+            db.session.commit()
+        
+        # Try SQL injection attempts - should be safely handled
+        dangerous_params = [
+            "'; DROP TABLE book; --",
+            "' OR '1'='1",
+            "\" OR 1=1 --",
+            "'; DELETE FROM book; --"
+        ]
+        
+        for param in dangerous_params:
+            response = client.get(f'/?status={param}')
+            # Should not execute any SQL injection, just return 200 with valid data
+            assert response.status_code == 200
+            assert b'Test Book' in response.data
+    
     def test_registration_logs_user_in(self, client):
         """Test that registration automatically logs user in."""
         response = client.post('/register', data={
