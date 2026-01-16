@@ -552,7 +552,12 @@ class TrustedDevice(db.Model):
     
     def is_expired(self):
         """Check if device trust has expired"""
-        return datetime.now(timezone.utc) > self.expires_at
+        # Handle both timezone-aware and naive datetimes from DB
+        expires_at = self.expires_at
+        if expires_at.tzinfo is None:
+            # Make naive datetime aware in UTC
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        return datetime.now(timezone.utc) > expires_at
     
     def __repr__(self):
         return f'<TrustedDevice user_id={self.user_id} name={self.device_name}>'
