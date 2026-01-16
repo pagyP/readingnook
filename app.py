@@ -1109,7 +1109,7 @@ def setup_mfa():
         
         # Verify TOTP code with time window tolerance (up to ±90 seconds for clock skew)
         totp = pyotp.TOTP(secret)
-        app.logger.debug(f'MFA setup verification: secret={secret}, totp_code={form.totp_code.data}')
+        app.logger.debug('MFA setup verification initiated for user')
         
         # Test current and adjacent time windows
         current_time = datetime.now()
@@ -1136,9 +1136,7 @@ def setup_mfa():
             flash('MFA enabled successfully! Your authenticator app is now linked.', 'success')
             return redirect(url_for('settings'))
         else:
-            # Debug: show what codes would be valid
-            valid_code_at_now = totp.now()
-            app.logger.warning(f'MFA setup failed - TOTP code mismatch for user: {current_user.username}. User sent: {form.totp_code.data}, Valid code now: {valid_code_at_now}')
+            app.logger.warning(f'MFA setup failed - TOTP code mismatch for user: {current_user.username}')
             flash('Invalid code. Please try again.', 'error')
     
     return render_template('mfa_setup.html', form=form, qr_code=qr_code_b64, secret=secret)
