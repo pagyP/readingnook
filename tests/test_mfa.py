@@ -3,7 +3,7 @@
 import pytest
 import pyotp
 from datetime import datetime, timezone, timedelta
-from app import app, db, User, TrustedDevice, RecoveryCode, password_hasher
+from app import app, db, User
 from app import encrypt_totp_secret, decrypt_totp_secret, generate_device_fingerprint
 
 
@@ -59,7 +59,7 @@ def user_with_mfa(client):
 def user_without_mfa(client):
     """Create a user without MFA enabled."""
     with app.app_context():
-        user = User(username='noMfauser', email='nomfa@example.com')
+        user = User(username='nomfauser', email='nomfa@example.com')
         user.set_password('TestPass123!')
         db.session.add(user)
         db.session.commit()
