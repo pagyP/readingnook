@@ -1106,9 +1106,9 @@ def setup_mfa():
         flash('MFA is already enabled on your account.', 'info')
         return redirect(url_for('settings'))
     
-    # Retrieve existing secret from session or generate new one for GET requests
+    # Retrieve existing secret from session or generate new one if it doesn't exist
     secret = session.get('mfa_setup_secret')
-    if not secret or request.method == 'GET':
+    if not secret:
         secret = pyotp.random_base32()
         session['mfa_setup_secret'] = secret
     
