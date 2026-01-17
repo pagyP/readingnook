@@ -16,6 +16,7 @@ from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import hashlib
+import io
 import os
 import re
 import logging
@@ -1091,7 +1092,6 @@ def setup_mfa():
     img = qr.make_image(fill_color="black", back_color="white")
     
     # Convert to base64 for HTML embedding
-    import io
     img_io = io.BytesIO()
     img.save(img_io, 'PNG')
     img_io.seek(0)
