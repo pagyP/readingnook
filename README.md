@@ -15,12 +15,17 @@ A simple Flask web application to track and record the books you've read.
 
 - ✅ Add books you've read with title, author, and date
 - 🔍 **Auto-lookup book info from ISBN** - Automatically fetch title, author, and genre using Open Library API
+- 🖼️ **Book covers** - Display cover images from Open Library with automatic ISBN lookup
+- 📖 **Multiple formats** - Track physical books, ebooks, and audiobooks
 - ⭐ Rate books on a 1-5 star scale
+- 🏷️ **Genre/categories** - Organize books by genre
 - 📝 Add personal notes and thoughts about each book
 - ✏️ Edit book entries
 - 🗑️ Delete books from your collection
 - 📊 View all your books in a beautiful grid layout
+- 📚 **To-Be-Read (TBR) tracking** - Organize books into "To Read", "Currently Reading", and "Read" statuses
 - 🔐 **Password-less account recovery** - Recover accounts using recovery codes (no email required)
+- 🔒 **Multi-Factor Authentication (MFA)** - Optional TOTP-based 2FA for enhanced security
 - ⚙️ **Account settings** - Change email address with password verification
 - 🎨 **Warm library aesthetic** - Cosy, literary-inspired design with warm browns and serif typography
 - ♿ **Accessible design** - WCAG AA/AAA compliant color contrast and responsive layouts
@@ -68,8 +73,10 @@ A simple Flask web application to track and record the books you've read.
 
 3. **Open your browser** and navigate to:
    ```
-   http://localhost:8000
+   http://localhost:5000
    ```
+   
+   **Note:** The development server runs on port 5000 by default. When using Docker (production), the app runs on port 8000 via Gunicorn.
 
 4. **Create an account** or log in with existing credentials
 
@@ -77,6 +84,8 @@ A simple Flask web application to track and record the books you've read.
 
 ✅ **User Authentication** - Create accounts with secure password hashing  
 ✅ **Password Hashing** - Passwords hashed using Argon2 (memory-hard, GPU-resistant)  
+✅ **Multi-Factor Authentication** - Optional TOTP-based 2FA using authenticator apps (Google Authenticator, Authy, etc.)  
+✅ **Trusted Devices** - Mark devices as trusted for 30 days to reduce MFA prompts  
 ✅ **Account Recovery** - Recover lost passwords using single-use recovery codes (no email required)  
 ✅ **Session Management** - Secure session handling with Flask-Login and 24-hour persistent timeout  
 ✅ **CSRF Protection** - All forms protected with CSRF tokens via Flask-WTF  
@@ -93,6 +102,7 @@ A simple Flask web application to track and record the books you've read.
 ```
 readingnook/
 ├── app.py                    # Main Flask application and routes
+├── init_db.py                # Database initialization script
 ├── requirements.txt          # Python dependencies
 ├── README.md                 # This file
 ├── .gitignore                # Git ignore rules
@@ -106,6 +116,11 @@ readingnook/
 ├── RECOVERY_CODE_SECURITY.md # Recovery code security details
 ├── SECURITY_HARDENING.md     # Security best practices
 ├── OPEN_LIBRARY_INTEGRATION.md # ISBN lookup feature guide
+├── MFA_FEATURE_IMPLEMENTATION.md # Multi-factor authentication guide
+├── TBR_FEATURE_IMPLEMENTATION.md # To-Be-Read feature implementation
+├── QUICK_START_TBR.md        # TBR quick start guide
+├── TEST_TBR_FEATURE.md       # TBR testing guide
+├── TBR_TESTS_DOCUMENTATION.md # TBR test coverage
 ├── static/
 │   └── images/
 │       └── cosy-library.jpg   # Background image
@@ -117,13 +132,18 @@ readingnook/
 │   ├── add_book.html         # Form to add a new book
 │   ├── edit_book.html        # Form to edit a book
 │   ├── settings.html         # Account settings (email change)
+│   ├── mfa_setup.html        # MFA setup page
+│   ├── mfa_verify.html       # MFA verification page
+│   ├── disable_mfa.html      # MFA disable page
+│   ├── trusted_devices.html  # Trusted devices management
 │   ├── recovery_codes.html   # Display recovery codes
 │   ├── forgot_password.html  # Password recovery entry point
 │   ├── reset_password.html   # Password reset form
 │   └── isbn_lookup_script.html # ISBN lookup helper
 └── tests/
     ├── conftest.py           # Pytest configuration
-    ├── test_app.py           # Comprehensive test suite
+    ├── test_app.py           # Comprehensive test suite (82 tests)
+    ├── test_mfa.py           # MFA-specific tests (18 tests)
     └── __init__.py
 ```
 
@@ -150,6 +170,8 @@ readingnook/
 
 ### Logging Out
 1. Click "Logout" in the top right navigation
+
+### Recovering Your Password
 1. On the login page, click "Recover your account"
 2. Enter your email address and one of your recovery codes (saved during account creation)
 3. Set a new password
@@ -160,8 +182,8 @@ readingnook/
 ### Adding a Book
 1. Click "+ Add Book" in the navigation
 2. Fill in the book details (title and author are required)
-3. Select the date you finished reading
-4. Optionally add a rating and notes
+3. Optionally add ISBN, genre, format, and rating
+4. Add notes about your thoughts on the book
 5. Click "Save Book"
 
 ### Editing a Book
@@ -188,22 +210,30 @@ readingnook/
 - Form validation with clear error messages
 - Rate limiting to prevent user frustration from failed attempts
 
+## Additional Documentation
+
+- **[MFA_FEATURE_IMPLEMENTATION.md](MFA_FEATURE_IMPLEMENTATION.md)** - Multi-factor authentication setup and usage
 - **[RECOVERY_CODES.md](RECOVERY_CODES.md)** - Complete guide to password recovery using recovery codes
+- **[RECOVERY_CODE_SECURITY.md](RECOVERY_CODE_SECURITY.md)** - Recovery code security enhancements  
+- **[SECURITY_HARDENING.md](SECURITY_HARDENING.md)** - Security implementation details and best practices
 - **[OPEN_LIBRARY_INTEGRATION.md](OPEN_LIBRARY_INTEGRATION.md)** - ISBN lookup and auto-fill feature guide
 - **[DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md)** - Docker and production deployment guide
+- **[TBR_FEATURE_IMPLEMENTATION.md](TBR_FEATURE_IMPLEMENTATION.md)** - To-Be-Read feature implementation details
+- **[QUICK_START_TBR.md](QUICK_START_TBR.md)** - Quick start guide for TBR feature
+- **[TEST_TBR_FEATURE.md](TEST_TBR_FEATURE.md)** - Testing guide for TBR feature
+- **[TBR_TESTS_DOCUMENTATION.md](TBR_TESTS_DOCUMENTATION.md)** - TBR test coverage documentation
 
 ## Future Enhancements
 
 Consider adding:
-- Book covers/images  
-- Genre/categories (enhanced categorization)
-- Reading progress tracking
-- Statistics and reading goals
+- Reading progress tracking (percentage complete, pages read)
+- Statistics and reading goals (yearly targets, reading streaks)
 - Email notifications for security events
 - Book recommendations based on reading history
 - Export reading history (CSV, PDF)
 - Social features (share lists, follow other readers)
 - Book club features
+- Advanced search and filtering (by format, date range, etc.)
 
 ## Technologies Used
 
@@ -214,7 +244,7 @@ Consider adding:
 - **Password Hashing:** Argon2-cffi 25.1.0 (memory-hard hashing)
 - **Rate Limiting:** Flask-Limiter 4.1.1
 - **Frontend:** HTML5, CSS3 (responsive design)
-- **Testing:** Pytest 7.4.4 (26+ tests)
+- **Testing:** Pytest 7.4.4 (100 tests: 82 in test_app.py, 18 in test_mfa.py)
 - **Containerization:** Docker & Docker Compose
 - **Deployment:** Gunicorn 22.0.0, Nginx
 
@@ -222,6 +252,6 @@ Consider adding:
 
 Feel free to use and modify this project!
 
-## Screenhots
+## Screenshots
 ![Home Page](images/login-screen.png)
 ![Book List](images/book-list.png)

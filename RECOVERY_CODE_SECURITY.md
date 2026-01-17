@@ -10,7 +10,7 @@ Addressed GitHub Copilot PR security review findings regarding recovery code ent
 
 ### 1. Enhanced Recovery Code Generation
 
-**File**: [app.py](app.py#L268-L302)
+**File**: [app.py](app.py#L672-L708)
 
 **Previous Implementation** (Vulnerable):
 ```python
@@ -36,7 +36,7 @@ plain_code = f"{base32_code[:4]}-{base32_code[4:8]}-{base32_code[8:12]}"
 
 ### 2. Rate Limiting on Recovery Endpoint
 
-**File**: [app.py](app.py#L469-L475)
+**File**: [app.py](app.py#L1322-L1328)
 
 ```python
 @app.route('/forgot-password', methods=['GET', 'POST'])
@@ -85,15 +85,21 @@ def forgot_password():
 
 ### Full Test Suite Status
 ```
-======================== 32 passed in 23.70s =========================
+======================== 100 passed =========================
 
 Breakdown:
-- 8 authentication tests ✅
-- 8 book CRUD tests ✅
-- 6 search tests ✅
-- 3 password security tests ✅
-- 6 recovery code tests ✅ (including new entropy verification)
-- 1 integration test ✅
+- 82 tests in test_app.py ✅
+  - 8+ authentication tests
+  - 8+ book CRUD tests
+  - 6+ search tests
+  - 3+ password security tests
+  - 6+ recovery code tests (including new entropy verification)
+  - 14+ TBR feature tests
+  - Integration tests
+- 18 tests in test_mfa.py ✅
+  - MFA setup, verification, disable
+  - Trusted device management
+  - Recovery code integration
 
 Key Recovery Code Tests:
 ✅ test_recovery_codes_generated_on_registration
