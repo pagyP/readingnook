@@ -126,10 +126,104 @@
         margin-top: 8px;
     }
     
+    .security-section {
+        margin-top: 40px;
+        padding-top: 30px;
+        border-top: 2px solid #DCC9B8;
+    }
+    
+    .security-section h3 {
+        color: #8B4513;
+        font-size: 1.3em;
+        margin-bottom: 20px;
+        font-family: 'Georgia', serif;
+    }
+    
+    .mfa-status-box {
+        background: #EDE5D9;
+        border-left: 4px solid #6B3410;
+        padding: 15px;
+        margin-bottom: 25px;
+        border-radius: 3px;
+    }
+    
+    .mfa-status-box p {
+        margin: 8px 0;
+        color: #5C4033;
+    }
+    
+    .mfa-status-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.9em;
+        margin-top: 8px;
+    }
+    
+    .mfa-enabled {
+        background: #C8E6C9;
+        color: #2E7D32;
+    }
+    
+    .mfa-disabled {
+        background: #FFCCBC;
+        color: #D84315;
+    }
+    
+    .mfa-info {
+        background: #F3E5F5;
+        border-left: 4px solid #7B1FA2;
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 3px;
+    }
+    
+    .mfa-info p {
+        margin: 8px 0;
+        color: #4A148C;
+    }
+    
+    .button-group {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 15px;
+    }
+    
+    .btn-small {
+        padding: 10px 15px;
+        font-size: 0.9em;
+    }
+    
+    .btn-secondary {
+        background: #9E9E9E;
+    }
+    
+    .btn-secondary:hover {
+        background: #757575;
+    }
+    
+    .btn-danger {
+        background: #D32F2F;
+    }
+    
+    .btn-danger:hover {
+        background: #B71C1C;
+    }
+    
     @media (max-width: 768px) {
         .settings-container {
             margin: 20px;
             padding: 20px;
+        }
+        
+        .button-group {
+            flex-direction: column;
+        }
+        
+        .button-group .btn {
+            width: 100%;
         }
     }
 </style>
@@ -139,6 +233,7 @@
 <div class="settings-container">
     <h2>⚙️ Account Settings</h2>
     
+    <!-- Email Change Section -->
     <div class="current-email">
         <p><strong>Current Email Address:</strong></p>
         <div class="email-value">{{ current_user.email }}</div>
@@ -183,5 +278,47 @@
         
         {{ form.submit(class="btn") }}
     </form>
+    
+    <!-- MFA Section -->
+    <div class="security-section">
+        <h3>🔐 Multi-Factor Authentication (MFA)</h3>
+        
+        <div class="mfa-info">
+            <p><strong>What is MFA?</strong> Multi-Factor Authentication adds an extra layer of security to your account by requiring a 6-digit code from an authenticator app when you log in.</p>
+            <p><strong>Recovery Codes:</strong> If you enable MFA and lose access to your authenticator app, you can use your recovery codes to regain access. Recovery codes can also be used if you forget your password.</p>
+        </div>
+        
+        {% if mfa_status %}
+            <div class="mfa-status-box">
+                <p><strong>Status:</strong> 
+                    {% if mfa_status.enabled %}
+                        <span class="mfa-status-badge mfa-enabled">✓ Enabled</span>
+                    {% else %}
+                        <span class="mfa-status-badge mfa-disabled">✗ Disabled</span>
+                    {% endif %}
+                </p>
+                
+                {% if mfa_status.last_authenticated %}
+                    <p><strong>Last Authenticated:</strong> {{ mfa_status.last_authenticated.strftime('%B %d, %Y at %I:%M %p') }}</p>
+                {% endif %}
+                
+                {% if mfa_status.trusted_device_count > 0 %}
+                    <p><strong>Trusted Devices:</strong> {{ mfa_status.trusted_device_count }}</p>
+                {% endif %}
+            </div>
+            
+            <div class="button-group">
+                {% if not mfa_status.enabled %}
+                    <a href="{{ url_for('setup_mfa') }}" class="btn btn-small">Enable MFA</a>
+                {% else %}
+                    <a href="{{ url_for('disable_mfa') }}" class="btn btn-small btn-danger">Disable MFA</a>
+                {% endif %}
+                
+                {% if mfa_status.enabled %}
+                    <a href="{{ url_for('trusted_devices') }}" class="btn btn-small btn-secondary">Manage Devices</a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
 </div>
 {% endblock %}
