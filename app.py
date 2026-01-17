@@ -804,8 +804,9 @@ class MFASetupForm(FlaskForm):
 
 class MFAVerifyForm(FlaskForm):
     """Form to enter TOTP code during login"""
+    password = PasswordField('Password', validators=[DataRequired(message='Password required for MFA')])
     totp_code = StringField('Authenticator Code', validators=[
-        DataRequired(),
+        Optional(),
         Length(min=6, max=6, message='Code must be exactly 6 digits'),
         Regexp(r'^\d{6}$', message='Code must contain only digits')
     ])
@@ -938,7 +939,6 @@ def login():
                 # MFA required: store pending user in session and show MFA form
                 session['mfa_required'] = True
                 session['pending_user_id'] = user.id
-                session['pending_password'] = form.password.data  # Store password for TOTP decryption
                 session.permanent = False
                 app.logger.info(f'MFA required for user: {user.username}')
                 return render_template('mfa_verify.html', mfa_form=mfa_form)
@@ -972,13 +972,12 @@ def login():
             return redirect(url_for('login'))
         
         mfa_verified = False
-        pending_password = session.get('pending_password', '')
         
         # Try TOTP code first
         if mfa_form.totp_code.data:
             decrypted_secret = decrypt_totp_secret(
                 user.mfa_secret_encrypted,
-                pending_password
+                mfa_form.password.data
             )
             totp = pyotp.TOTP(decrypted_secret) if decrypted_secret else None
             if totp and totp.verify(mfa_form.totp_code.data, valid_window=3):
@@ -1035,7 +1034,6 @@ def login():
             login_user(user, remember=True)
             session.pop('mfa_required', None)
             session.pop('pending_user_id', None)
-            session.pop('pending_password', None)
             
             user.mfa_last_authenticated = datetime.now(timezone.utc)
             db.session.commit()
