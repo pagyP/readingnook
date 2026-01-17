@@ -85,15 +85,21 @@ def forgot_password():
 
 ### Full Test Suite Status
 ```
-======================== 32 passed in 23.70s =========================
+======================== 100 passed =========================
 
 Breakdown:
-- 8 authentication tests ✅
-- 8 book CRUD tests ✅
-- 6 search tests ✅
-- 3 password security tests ✅
-- 6 recovery code tests ✅ (including new entropy verification)
-- 1 integration test ✅
+- 82 tests in test_app.py ✅
+  - 8+ authentication tests
+  - 8+ book CRUD tests
+  - 6+ search tests
+  - 3+ password security tests
+  - 6+ recovery code tests (including new entropy verification)
+  - 14+ TBR feature tests
+  - Integration tests
+- 18 tests in test_mfa.py ✅
+  - MFA setup, verification, disable
+  - Trusted device management
+  - Recovery code integration
 
 Key Recovery Code Tests:
 ✅ test_recovery_codes_generated_on_registration

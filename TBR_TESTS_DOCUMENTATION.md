@@ -1,7 +1,11 @@
 ## ✅ TBR Feature - Test Coverage Summary
 
 ### Test Results
-✅ **All 80 tests pass** (14 new TBR tests + 66 existing tests that were updated/verified)
+✅ **All 100 tests pass** (82 tests in test_app.py + 18 tests in test_mfa.py)
+
+The test_app.py file includes:
+- 14 new TBR tests
+- 68 existing tests (updated/verified for compatibility)
 
 ### New Tests Added (14 tests in `TestTBRFeature` class)
 
@@ -107,11 +111,12 @@ python3 -m pytest tests/test_app.py::TestTBRFeature::test_filter_books_by_to_rea
 
 ### Test Statistics
 
-- **Total tests:** 80 (passed ✅)
-- **New tests:** 14
+- **Total tests:** 100 (82 in test_app.py + 18 in test_mfa.py, all passed ✅)
+- **New TBR tests:** 14
 - **Updated tests:** 5
-- **Execution time:** ~22.63 seconds
-- **Test file size:** 1,652 lines
+- **Execution time:** ~25 seconds (varies by system)
+- **test_app.py size:** 1,694 lines
+- **test_mfa.py size:** 297 lines
 
 ### CI/CD Integration
 
