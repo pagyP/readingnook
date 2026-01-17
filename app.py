@@ -913,6 +913,23 @@ def login():
     if current_user.is_authenticated:
         return redirect(url_for('index'))
     
+    # Clean up any abandoned MFA sessions (if MFA started >10 minutes ago)
+    mfa_started_at = session.get('mfa_started_at')
+    if mfa_started_at:
+        try:
+            mfa_start_time = datetime.fromisoformat(mfa_started_at)
+            if datetime.now(timezone.utc) - mfa_start_time > timedelta(minutes=10):
+                # MFA session expired, clean up
+                session.pop('mfa_required', None)
+                session.pop('pending_user_id', None)
+                session.pop('mfa_started_at', None)
+                app.logger.info('Abandoned MFA session cleaned up (expired after 10 minutes)')
+        except (ValueError, TypeError):
+            # Invalid timestamp, clean up
+            session.pop('mfa_required', None)
+            session.pop('pending_user_id', None)
+            session.pop('mfa_started_at', None)
+    
     # Get MFA form data from session if continuing from MFA step
     mfa_required = session.get('mfa_required', False)
     pending_user_id = session.get('pending_user_id', None)
@@ -940,6 +957,7 @@ def login():
                 # MFA required: store pending user in session and show MFA form
                 session['mfa_required'] = True
                 session['pending_user_id'] = user.id
+                session['mfa_started_at'] = datetime.now(timezone.utc).isoformat()
                 session.permanent = False
                 app.logger.info(f'MFA required for user: {user.username}')
                 return render_template('mfa_verify.html', mfa_form=mfa_form)
@@ -965,6 +983,7 @@ def login():
             app.logger.error(f'MFA verification: user {pending_user_id} not found')
             session.pop('mfa_required', None)
             session.pop('pending_user_id', None)
+            session.pop('mfa_started_at', None)
             flash('Session expired. Please log in again.', 'error')
             return redirect(url_for('login'))
         
@@ -1031,6 +1050,7 @@ def login():
             login_user(user, remember=True)
             session.pop('mfa_required', None)
             session.pop('pending_user_id', None)
+            session.pop('mfa_started_at', None)
             
             user.mfa_last_authenticated = datetime.now(timezone.utc)
             db.session.commit()
