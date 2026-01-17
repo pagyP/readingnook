@@ -27,51 +27,56 @@ A simple Flask web application to track and record the books you've read.
 
 ## Installation
 
-1. **Clone or create the project:**
+This application **requires Docker and Docker Compose**. All other setup is handled automatically by the container.
+### Development (Contributors)
+
+1. **Clone the project:**
    ```bash
    git clone https://github.com/pagyP/readingnook.git
    cd readingnook
    ```
 
-2. **Create a virtual environment:**
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Configure environment variables:**
+2. **Set environment variables:**
    ```bash
    cp .env.example .env
+   # Edit .env and set SQLALCHEMY_DATABASE_URI and SECRET_KEY
    ```
-   
-   Edit `.env` and set a strong `SECRET_KEY` for production. You can generate one with:
+
+3. **Start the application (builds from local Dockerfile):**
    ```bash
-   python3 -c "import secrets; print(secrets.token_hex(32))"
+   docker compose up -d
    ```
 
-## Running the Application
+4. **Open your browser** and navigate to `http://localhost:8000`
 
-1. **Activate the virtual environment** (if not already active):
+### Production (Users)
+
+For users who want to run the pre-built image from GitHub Container Registry:
+
+1. **Create environment file:**
    ```bash
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   # Create .env with your configuration
+   SQLALCHEMY_DATABASE_URI=postgresql+psycopg://readingnook:changeme@db:5432/readingnook
+   SECRET_KEY=<generate-with-python>
+   FLASK_ENV=production
    ```
 
-2. **Start the Flask app:**
+2. **Create docker-compose file:**
    ```bash
-   python3 app.py
+   # Copy the production compose file
+   cp docker-compose.prod.yml docker-compose.yml
    ```
 
-3. **Open your browser** and navigate to:
-   ```
-   http://localhost:8000
+3. **Start the application (uses pre-built image):**
+   ```bash
+   docker compose up -d
    ```
 
-4. **Create an account** or log in with existing credentials
+4. **Open your browser** and navigate to `http://localhost:8000`
+
+**Note:** Database schema is created automatically on startup via `init_db.py`. If you're upgrading from a version created before the MFA feature, see [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md) for schema migration instructions.
+
+For detailed Docker and production deployment instructions, see [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md).
 
 ## Security Features
 
@@ -208,14 +213,14 @@ Consider adding:
 ## Technologies Used
 
 - **Backend:** Flask 3.1.2 (Python web framework)
-- **Database:** PostgreSQL 18.1 (production), SQLite (development)
+- **Database:** PostgreSQL 18.1 (required)
 - **ORM:** SQLAlchemy 3.0.5
 - **Authentication:** Flask-Login 0.6.3, Flask-WTF 1.2.1
 - **Password Hashing:** Argon2-cffi 25.1.0 (memory-hard hashing)
 - **Rate Limiting:** Flask-Limiter 4.1.1
 - **Frontend:** HTML5, CSS3 (responsive design)
-- **Testing:** Pytest 7.4.4 (26+ tests)
-- **Containerization:** Docker & Docker Compose
+- **Testing:** Pytest 7.4.4 (18+ tests for MFA feature)
+- **Containerization:** Docker & Docker Compose (required)
 - **Deployment:** Gunicorn 22.0.0, Nginx
 
 ## License
