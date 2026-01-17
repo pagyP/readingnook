@@ -15,7 +15,10 @@ A simple Flask web application to track and record the books you've read.
 
 - ✅ Add books you've read with title, author, and date
 - 🔍 **Auto-lookup book info from ISBN** - Automatically fetch title, author, and genre using Open Library API
+- 🖼️ **Book covers** - Display cover images from Open Library with automatic ISBN lookup
+- 📖 **Multiple formats** - Track physical books, ebooks, and audiobooks
 - ⭐ Rate books on a 1-5 star scale
+- 🏷️ **Genre/categories** - Organize books by genre
 - 📝 Add personal notes and thoughts about each book
 - ✏️ Edit book entries
 - 🗑️ Delete books from your collection
@@ -179,8 +182,8 @@ readingnook/
 ### Adding a Book
 1. Click "+ Add Book" in the navigation
 2. Fill in the book details (title and author are required)
-3. Select the date you finished reading
-4. Optionally add a rating and notes
+3. Optionally add ISBN, genre, format, and rating
+4. Add notes about your thoughts on the book
 5. Click "Save Book"
 
 ### Editing a Book
@@ -223,15 +226,14 @@ readingnook/
 ## Future Enhancements
 
 Consider adding:
-- Book covers/images  
-- Genre/categories (enhanced categorization)
-- Reading progress tracking
-- Statistics and reading goals
+- Reading progress tracking (percentage complete, pages read)
+- Statistics and reading goals (yearly targets, reading streaks)
 - Email notifications for security events
 - Book recommendations based on reading history
 - Export reading history (CSV, PDF)
 - Social features (share lists, follow other readers)
 - Book club features
+- Advanced search and filtering (by format, date range, etc.)
 
 ## Technologies Used
 

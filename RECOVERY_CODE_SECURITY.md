@@ -10,7 +10,7 @@ Addressed GitHub Copilot PR security review findings regarding recovery code ent
 
 ### 1. Enhanced Recovery Code Generation
 
-**File**: [app.py](app.py#L268-L302)
+**File**: [app.py](app.py#L672-L708)
 
 **Previous Implementation** (Vulnerable):
 ```python
@@ -36,7 +36,7 @@ plain_code = f"{base32_code[:4]}-{base32_code[4:8]}-{base32_code[8:12]}"
 
 ### 2. Rate Limiting on Recovery Endpoint
 
-**File**: [app.py](app.py#L469-L475)
+**File**: [app.py](app.py#L1322-L1328)
 
 ```python
 @app.route('/forgot-password', methods=['GET', 'POST'])
