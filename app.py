@@ -949,10 +949,6 @@ def login():
             session.pop('mfa_required', None)
             session.pop('pending_user_id', None)
             
-            # Update last authenticated time
-            user.mfa_last_authenticated = datetime.now(timezone.utc)
-            db.session.commit()
-            
             app.logger.info(f'User logged in successfully: {user.username}')
             flash(f'Welcome back, {user.username}!', 'success')
             return redirect(url_for('index'))
