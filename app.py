@@ -752,6 +752,11 @@ class ChangeEmailForm(FlaskForm):
         if user:
             raise ValidationError('Email already registered.')
 
+class DisableMFAForm(FlaskForm):
+    """Form to disable MFA with password verification."""
+    password = PasswordField('Password', validators=[DataRequired(message='Password required to disable MFA')])
+    submit = SubmitField('Disable MFA')
+
 class BookForm(FlaskForm):
     title = StringField('Title', validators=[
         DataRequired(),
@@ -1167,22 +1172,40 @@ def setup_mfa():
     
     return render_template('mfa_setup.html', form=form, qr_code=qr_code_b64, secret=secret)
 
-@app.route('/mfa/disable', methods=['POST'])
+@app.route('/mfa/disable', methods=['GET', 'POST'])
 @login_required
 @limiter.limit("5 per hour")
 def disable_mfa():
-    """Disable MFA on account."""
+    """Disable MFA on account with password verification.
+    
+    Security:
+    - Requires password verification to prevent unauthorized MFA disabling
+    - Rate limited to 5 attempts per hour per IP
+    - Logs MFA disable events for audit trail
+    """
     if not current_user.mfa_enabled:
         flash('MFA is not enabled on your account.', 'info')
         return redirect(url_for('settings'))
     
-    current_user.mfa_enabled = False
-    current_user.mfa_secret_encrypted = None
-    db.session.commit()
+    form = DisableMFAForm()
     
-    app.logger.info(f'MFA disabled for user: {current_user.username}')
-    flash('MFA has been disabled. Your account is less secure without it.', 'warning')
-    return redirect(url_for('settings'))
+    if form.validate_on_submit():
+        # Verify password before allowing MFA disable
+        if not current_user.check_password(form.password.data):
+            app.logger.warning(f'Failed MFA disable attempt - invalid password for user: {current_user.username}')
+            flash('Invalid password. MFA not disabled.', 'error')
+            return render_template('disable_mfa.html', form=form)
+        
+        # Disable MFA
+        current_user.mfa_enabled = False
+        current_user.mfa_secret_encrypted = None
+        db.session.commit()
+        
+        app.logger.info(f'MFA disabled for user: {current_user.username}')
+        flash('MFA has been disabled. Your account is less secure without it.', 'warning')
+        return redirect(url_for('settings'))
+    
+    return render_template('disable_mfa.html', form=form)
 
 @app.route('/mfa/trusted-devices')
 @login_required
