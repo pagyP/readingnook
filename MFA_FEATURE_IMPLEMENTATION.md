@@ -72,7 +72,7 @@ The Reading Nook app now includes **optional Multi-Factor Authentication (MFA)**
 ### Security Implementation
 
 #### TOTP Secret Encryption
-- Uses AES-128-CBC (Fernet) encryption
+- Uses AES-128 in CBC mode with HMAC-SHA256 authentication (Fernet)
 - Key derived from user's password using PBKDF2HMAC:
   - 480,000 iterations (OWASP recommended)
   - SHA256 hashing algorithm

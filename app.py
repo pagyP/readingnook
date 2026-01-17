@@ -235,7 +235,7 @@ def encrypt_totp_secret(secret, password, user_id=None):
         Base64-encoded encrypted secret
         
     Security:
-        - Uses Fernet (AES-128-CBC + HMAC)
+        - Uses AES-128 in CBC mode with HMAC-SHA256 authentication (Fernet)
         - Encrypted with key derived from user's password
         - Per-user salt ensures unique encryption keys even for same password
         - Same password + user_id always derives same key, enabling decryption later
