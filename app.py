@@ -821,7 +821,6 @@ class MFASetupForm(FlaskForm):
 
 class MFAVerifyForm(FlaskForm):
     """Form to enter TOTP code during login"""
-    password = PasswordField('Password', validators=[DataRequired(message='Password required for MFA')])
     totp_code = StringField('Authenticator Code', validators=[
         Optional(),
         Length(min=6, max=6, message='Code must be exactly 6 digits'),
@@ -973,6 +972,7 @@ def login():
                 # MFA required: store pending user in session and show MFA form
                 session['mfa_required'] = True
                 session['pending_user_id'] = user.id
+                session['mfa_password'] = form.password.data  # Store password for MFA secret decryption
                 session['mfa_started_at'] = datetime.now(timezone.utc).isoformat()
                 session.permanent = False
                 app.logger.info(f'MFA required for user: {user.username}')
@@ -1007,9 +1007,10 @@ def login():
         
         # Try TOTP code first
         if mfa_form.totp_code.data:
+            password = session.get('mfa_password')
             decrypted_secret = decrypt_totp_secret(
                 user.mfa_secret_encrypted,
-                mfa_form.password.data,
+                password,
                 user_id=user.id
             )
             totp = pyotp.TOTP(decrypted_secret) if decrypted_secret else None
@@ -1068,6 +1069,7 @@ def login():
             session.pop('mfa_required', None)
             session.pop('pending_user_id', None)
             session.pop('mfa_started_at', None)
+            session.pop('mfa_password', None)  # Clear stored password
             
             user.mfa_last_authenticated = datetime.now(timezone.utc)
             db.session.commit()
