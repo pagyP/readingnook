@@ -40,12 +40,16 @@ def user_with_mfa(client):
         
         # Setup MFA
         secret = pyotp.random_base32()
-        encrypted_secret = encrypt_totp_secret(secret, user.password_hash)
+        # Note: user needs to be added to DB first to get an ID
+        db.session.add(user)
+        db.session.commit()
+        
+        # Now encrypt with user_id
+        encrypted_secret = encrypt_totp_secret(secret, user.password_hash, user_id=user.id)
         user.mfa_enabled = True
         user.mfa_secret_encrypted = encrypted_secret
         user.mfa_last_authenticated = datetime.now(timezone.utc)
         
-        db.session.add(user)
         db.session.commit()
         
         yield user, secret
@@ -231,21 +235,23 @@ class TestEncryption:
         """Test that TOTP secret can be encrypted and decrypted."""
         secret = pyotp.random_base32()
         password = 'TestPass123!'
+        user_id = 1  # Use a test user_id
         
-        encrypted = encrypt_totp_secret(secret, password)
+        encrypted = encrypt_totp_secret(secret, password, user_id=user_id)
         assert encrypted is not None
         assert encrypted != secret
         
-        decrypted = decrypt_totp_secret(encrypted, password)
+        decrypted = decrypt_totp_secret(encrypted, password, user_id=user_id)
         assert decrypted == secret
     
     def test_decrypt_with_wrong_password(self):
         """Test that decryption fails with wrong password."""
         secret = pyotp.random_base32()
         password = 'TestPass123!'
+        user_id = 1  # Use a test user_id
         
-        encrypted = encrypt_totp_secret(secret, password)
-        decrypted = decrypt_totp_secret(encrypted, 'WrongPassword')
+        encrypted = encrypt_totp_secret(secret, password, user_id=user_id)
+        decrypted = decrypt_totp_secret(encrypted, 'WrongPassword', user_id=user_id)
         
         assert decrypted is None
 
