@@ -159,6 +159,21 @@
         color: #6A1B9A;
     }
     
+    .recovery-code-form {
+        margin-top: 15px;
+    }
+    
+    .recovery-code-label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #5C4033;
+    }
+    
+    .recovery-submit-btn {
+        margin-top: 10px;
+    }
+    
     @media (max-width: 768px) {
         .mfa-verify-container {
             margin: 20px;
@@ -225,10 +240,10 @@
         <p><strong>Lost your authenticator app?</strong></p>
         <p>You can use a recovery code to log in and disable MFA. Each recovery code can only be used once.</p>
         
-        <div class="form-group" style="margin-top: 15px;">
+        <div class="form-group recovery-code-form">
             <form method="POST" novalidate>
                 {{ mfa_form.hidden_tag() }}
-                {{ mfa_form.recovery_code.label("Recovery Code", style="display: block; margin-bottom: 8px; font-weight: 600; color: #5C4033;") }}
+                {{ mfa_form.recovery_code.label("Recovery Code") }}
                 {{ mfa_form.recovery_code(class="form-control", placeholder="XXXX-XXXX-XXXX") }}
                 {% if mfa_form.recovery_code.errors %}
                     <div class="error-list">
@@ -239,7 +254,7 @@
                         </ul>
                     </div>
                 {% endif %}
-                <button type="submit" class="btn" style="margin-top: 10px;">Use Recovery Code</button>
+                <button type="submit" class="btn recovery-submit-btn">Use Recovery Code</button>
             </form>
         </div>
     </div>
