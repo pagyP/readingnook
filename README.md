@@ -55,10 +55,13 @@ For users who want to run the pre-built image from GitHub Container Registry:
 
 1. **Create environment file:**
    ```bash
-   # Create .env with your configuration
-   SQLALCHEMY_DATABASE_URI=postgresql+psycopg://readingnook:changeme@db:5432/readingnook
+   # Create .env with your database configuration
+   DB_USER=readingnook
+   DB_PASSWORD=<change-to-secure-password>
+   DB_NAME=readingnook
    SECRET_KEY=<generate-with-python>
    FLASK_ENV=production
+   SESSION_COOKIE_SECURE=True
    ```
 
 2. **Create docker-compose file:**
