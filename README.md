@@ -59,6 +59,20 @@ A simple Flask web application to track and record the books you've read.
    python3 -c "import secrets; print(secrets.token_hex(32))"
    ```
 
+5. **Database Setup:**
+   
+   The application uses PostgreSQL. For local development, the easiest option is to use Docker:
+   ```bash
+   docker compose up -d db
+   ```
+   
+   Or configure a local PostgreSQL instance and add to your `.env`:
+   ```bash
+   SQLALCHEMY_DATABASE_URI=postgresql+psycopg://username:password@localhost:5432/readingnook
+   ```
+   
+   **Note:** A SQLite fallback exists in the code for simple testing, but PostgreSQL is recommended for all environments.
+
 ## Running the Application
 
 1. **Activate the virtual environment** (if not already active):
