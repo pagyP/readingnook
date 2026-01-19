@@ -222,7 +222,7 @@ Consider adding:
 - **Password Hashing:** Argon2-cffi 25.1.0 (memory-hard hashing)
 - **Rate Limiting:** Flask-Limiter 4.1.1
 - **Frontend:** HTML5, CSS3 (responsive design)
-- **Testing:** Pytest 7.4.4 (18+ tests for MFA feature)
+- **Testing:** Pytest 7.4.4 (82 comprehensive tests covering authentication, MFA, books, and recovery)
 - **Containerization:** Docker & Docker Compose (required)
 - **Deployment:** Gunicorn 22.0.0, Nginx
 
