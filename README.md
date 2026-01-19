@@ -238,7 +238,7 @@ Consider adding:
 ## Technologies Used
 
 - **Backend:** Flask 3.1.2 (Python web framework)
-- **Database:** PostgreSQL 18.1 (production), SQLite (development)
+- **Database:** PostgreSQL 18.1 (all environments)
 - **ORM:** SQLAlchemy 3.0.5
 - **Authentication:** Flask-Login 0.6.3, Flask-WTF 1.2.1
 - **Password Hashing:** Argon2-cffi 25.1.0 (memory-hard hashing)

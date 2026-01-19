@@ -150,13 +150,6 @@ This approach:
 - ✅ Minimizes downtime (only app restart needed)
 - ✅ Safe to run on production
 
-**For SQLite (local development):**
-```bash
-# Delete old database to start fresh
-rm readingnook.db
-python3 init_db.py
-```
-
 Or run the app normally - `db.create_all()` will create the new schema on startup.
 
 ---

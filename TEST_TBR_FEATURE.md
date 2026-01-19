@@ -76,11 +76,6 @@ When you first run the updated app with a fresh database:
 docker exec readingnook_db psql -U readingnook -d readingnook -c "ALTER TABLE book ADD COLUMN status VARCHAR(20) DEFAULT 'read';"
 ```
 
-Or if using SQLite locally:
-```bash
-sqlite3 instance/readingnook.db "ALTER TABLE book ADD COLUMN status VARCHAR(20) DEFAULT 'read';"
-```
-
 If you skip this step, the app will fail with: `column "book"."status" does not exist`
 
 ## API Endpoint
