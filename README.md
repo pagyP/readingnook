@@ -32,32 +32,29 @@ A simple Flask web application to track and record the books you've read.
 
 ## Installation
 
-1. **Clone or create the project:**
+This application **requires Docker and Docker Compose**. All other setup is handled automatically by the container.
+### Development (Contributors)
+
+1. **Clone the project:**
    ```bash
    git clone https://github.com/pagyP/readingnook.git
    cd readingnook
    ```
 
-2. **Create a virtual environment:**
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Configure environment variables:**
+2. **Set environment variables:**
    ```bash
    cp .env.example .env
+   # Edit .env and set SQLALCHEMY_DATABASE_URI and SECRET_KEY
    ```
-   
-   Edit `.env` and set a strong `SECRET_KEY` for production. You can generate one with:
+
+3. **Start the application (builds from local Dockerfile):**
    ```bash
-   python3 -c "import secrets; print(secrets.token_hex(32))"
+   docker compose up -d
    ```
+
+4. **Open your browser** and navigate to `http://localhost:8000`
+
+### Production (Users)
 
 5. **Database Setup:**
    
@@ -74,15 +71,22 @@ A simple Flask web application to track and record the books you've read.
    **Note:** A SQLite fallback exists in the code for simple testing, but PostgreSQL is recommended for all environments.
 
 ## Running the Application
+For users who want to run the pre-built image from GitHub Container Registry:
 
-1. **Activate the virtual environment** (if not already active):
+1. **Create environment file:**
    ```bash
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   # Create .env with your database configuration
+   DB_USER=readingnook
+   DB_PASSWORD=<change-to-secure-password>
+   DB_NAME=readingnook
+   SECRET_KEY=<generate-with-python>
+   FLASK_ENV=production
+   SESSION_COOKIE_SECURE=True
    ```
 
-2. **Start the Flask app:**
+2. **Start the application (uses pre-built image):**
    ```bash
-   python3 app.py
+   docker compose -f docker-compose.prod.yml up -d
    ```
 
 3. **Open your browser** and navigate to:
@@ -91,8 +95,11 @@ A simple Flask web application to track and record the books you've read.
    ```
    
    **Note:** The development server runs on port 5000 by default. When using Docker (production), the app runs on port 8000 via Gunicorn.
+3. **Open your browser** and navigate to `http://localhost:8000`
 
-4. **Create an account** or log in with existing credentials
+**Note:** Database schema is created automatically on startup via `init_db.py`. If you're upgrading from a version created before the MFA feature, see [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md) for schema migration instructions.
+
+For detailed Docker and production deployment instructions, see [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md).
 
 ## Security Features
 
@@ -253,6 +260,7 @@ Consider adding:
 
 - **Backend:** Flask 3.1.2 (Python web framework)
 - **Database:** PostgreSQL 18.1 (all environments)
+- **Database:** PostgreSQL 18.1 (required)
 - **ORM:** SQLAlchemy 3.0.5
 - **Authentication:** Flask-Login 0.6.3, Flask-WTF 1.2.1
 - **Password Hashing:** Argon2-cffi 25.1.0 (memory-hard hashing)
@@ -260,6 +268,8 @@ Consider adding:
 - **Frontend:** HTML5, CSS3 (responsive design)
 - **Testing:** Pytest 7.4.4 (100 tests: 82 in test_app.py, 18 in test_mfa.py)
 - **Containerization:** Docker & Docker Compose
+- **Testing:** Pytest 7.4.4 (82 comprehensive tests covering authentication, MFA, books, and recovery)
+- **Containerization:** Docker & Docker Compose (required)
 - **Deployment:** Gunicorn 22.0.0, Nginx
 
 ## License

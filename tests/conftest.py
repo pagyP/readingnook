@@ -4,6 +4,9 @@ import os
 # Add the parent directory to the Python path so tests can import app
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+# Set test database URI BEFORE importing app (required since SQLite fallback removed)
+os.environ['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db'
+
 import pytest
 from app import app, db, limiter
 

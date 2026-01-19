@@ -54,8 +54,10 @@ def configure_logging(flask_app):
         ))
         flask_app.logger.addHandler(console_handler)
 
-# Handle both SQLite (dev) and PostgreSQL (production)
-db_uri = os.getenv('SQLALCHEMY_DATABASE_URI', 'sqlite:///readingnook.db')
+# PostgreSQL is required - no SQLite fallback (configured via SQLALCHEMY_DATABASE_URI)
+db_uri = os.getenv('SQLALCHEMY_DATABASE_URI')
+if not db_uri:
+    raise ValueError('SQLALCHEMY_DATABASE_URI environment variable is required')
 # Convert old postgresql:// to postgresql+psycopg:// for psycopg3
 if db_uri.startswith('postgresql://'):
     db_uri = db_uri.replace('postgresql://', 'postgresql+psycopg://', 1)
