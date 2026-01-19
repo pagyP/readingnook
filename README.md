@@ -64,18 +64,12 @@ For users who want to run the pre-built image from GitHub Container Registry:
    SESSION_COOKIE_SECURE=True
    ```
 
-2. **Create docker-compose file:**
+2. **Start the application (uses pre-built image):**
    ```bash
-   # Copy the production compose file
-   cp docker-compose.prod.yml docker-compose.yml
+   docker compose -f docker-compose.prod.yml up -d
    ```
 
-3. **Start the application (uses pre-built image):**
-   ```bash
-   docker compose up -d
-   ```
-
-4. **Open your browser** and navigate to `http://localhost:8000`
+3. **Open your browser** and navigate to `http://localhost:8000`
 
 **Note:** Database schema is created automatically on startup via `init_db.py`. If you're upgrading from a version created before the MFA feature, see [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md) for schema migration instructions.
 
