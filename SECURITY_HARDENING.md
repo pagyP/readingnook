@@ -137,13 +137,19 @@ All 6 recovery code tests passing:
 - ✅ Recovery code must match email
 
 ### Full Test Suite
-All 32 tests pass:
-- 8 authentication tests
-- 8 book CRUD tests
-- 6 search tests
-- 3 password security tests
-- 6 recovery code tests
-- 1 integration test
+All 100 tests pass:
+- 82 tests in test_app.py (authentication, books, search, TBR, recovery codes)
+- 18 tests in test_mfa.py (MFA-specific functionality)
+
+Breakdown:
+- 8+ authentication tests ✅
+- 8+ book CRUD tests ✅
+- 6+ search tests ✅
+- 3+ password security tests ✅
+- 6+ recovery code tests ✅
+- 14+ TBR feature tests ✅
+- 18 MFA tests ✅
+- Integration tests ✅
 
 ## OWASP Compliance
 
