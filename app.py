@@ -399,13 +399,23 @@ def fetch_book_from_open_library(isbn):
         else:
             result['author'] = ''
         
-        # Subjects (genres) - use subject list if available
-        subjects = book_data.get('subject', [])
-        if subjects:
-            # Use first 3 subjects as genre
-            result['genre'] = ', '.join(subjects[:3])
-        else:
-            result['genre'] = ''
+        # Subjects (genres) - fetch from works API for better metadata
+        result['genre'] = ''
+        work_key = book_data.get('key')
+        if work_key:
+            try:
+                # Fetch work data which includes subjects
+                work_url = f'https://openlibrary.org{work_key}.json'
+                work_response = requests.get(work_url, timeout=3)
+                if work_response.status_code == 200:
+                    work_data = work_response.json()
+                    subjects = work_data.get('subjects', [])
+                    if subjects:
+                        # Use first 3 subjects as genre
+                        result['genre'] = ', '.join(subjects[:3])
+            except Exception as e:
+                app.logger.debug(f'Could not fetch subjects from works API: {str(e)}')
+                # Continue without genre if works API fails
         
         # Cover image URL - Open Library provides cover_i (image ID)
         cover_id = book_data.get('cover_i')

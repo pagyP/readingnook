@@ -41,6 +41,9 @@
             
             const bookData = await response.json();
             
+            // Debug logging
+            console.log('Book data received:', bookData);
+            
             // Populate form fields
             if (bookData.title) {
                 document.getElementById('title').value = bookData.title;
@@ -48,8 +51,9 @@
             if (bookData.author) {
                 document.getElementById('author').value = bookData.author;
             }
-            if (bookData.genre) {
-                document.getElementById('genre').value = bookData.genre;
+            // Always populate genre, even if empty
+            if (bookData.hasOwnProperty('genre')) {
+                document.getElementById('genre').value = bookData.genre || '';
             }
             
             // Display cover image if available
