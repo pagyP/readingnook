@@ -772,15 +772,25 @@ class TestOpenLibraryIntegration:
                 'title': 'The Great Gatsby',
                 'author_name': ['F. Scott Fitzgerald'],
                 'subject': ['American fiction', 'Jazz Age', 'Fiction'],
+                'key': '/works/OL468431W',
                 'cover_i': 123456
             }]
         }
         
         def mock_get(*args, **kwargs):
+            # Return different mock responses depending on endpoint called
             from unittest.mock import Mock
+            url = args[0] if args else kwargs.get('url', '')
             response = Mock()
             response.status_code = 200
-            response.json.return_value = mock_response
+            # If fetching work data (ends with .json and contains "/works/"), return subjects
+            if '/works/' in url and url.endswith('.json'):
+                response.json.return_value = {
+                    'subjects': ['American fiction', 'Jazz Age', 'Fiction']
+                }
+            else:
+                # Search endpoint
+                response.json.return_value = mock_response
             return response
         
         monkeypatch.setattr('app.requests.get', mock_get)
@@ -807,9 +817,13 @@ class TestOpenLibraryIntegration:
         
         def mock_get(*args, **kwargs):
             from unittest.mock import Mock
+            url = args[0] if args else kwargs.get('url', '')
             response = Mock()
             response.status_code = 200
-            response.json.return_value = mock_response
+            if '/works/' in url and url.endswith('.json'):
+                response.json.return_value = {'subjects': mock_response['docs'][0].get('subject', [])}
+            else:
+                response.json.return_value = mock_response
             return response
         
         monkeypatch.setattr('app.requests.get', mock_get)
@@ -837,9 +851,13 @@ class TestOpenLibraryIntegration:
         
         def mock_get(*args, **kwargs):
             from unittest.mock import Mock
+            url = args[0] if args else kwargs.get('url', '')
             response = Mock()
             response.status_code = 200
-            response.json.return_value = mock_response
+            if '/works/' in url and url.endswith('.json'):
+                response.json.return_value = {'subjects': mock_response['docs'][0].get('subject', [])}
+            else:
+                response.json.return_value = mock_response
             return response
         
         monkeypatch.setattr('app.requests.get', mock_get)
@@ -864,9 +882,13 @@ class TestOpenLibraryIntegration:
         
         def mock_get(*args, **kwargs):
             from unittest.mock import Mock
+            url = args[0] if args else kwargs.get('url', '')
             response = Mock()
             response.status_code = 200
-            response.json.return_value = mock_response
+            if '/works/' in url and url.endswith('.json'):
+                response.json.return_value = {'subjects': mock_response['docs'][0].get('subject', [])}
+            else:
+                response.json.return_value = mock_response
             return response
         
         monkeypatch.setattr('app.requests.get', mock_get)
@@ -891,9 +913,13 @@ class TestOpenLibraryIntegration:
         
         def mock_get(*args, **kwargs):
             from unittest.mock import Mock
+            url = args[0] if args else kwargs.get('url', '')
             response = Mock()
             response.status_code = 200
-            response.json.return_value = mock_response
+            if '/works/' in url and url.endswith('.json'):
+                response.json.return_value = {'subjects': mock_response['docs'][0].get('subject', [])}
+            else:
+                response.json.return_value = mock_response
             return response
         
         monkeypatch.setattr('app.requests.get', mock_get)
@@ -910,9 +936,13 @@ class TestOpenLibraryIntegration:
         
         def mock_get(*args, **kwargs):
             from unittest.mock import Mock
+            url = args[0] if args else kwargs.get('url', '')
             response = Mock()
             response.status_code = 200
-            response.json.return_value = mock_response
+            if '/works/' in url and url.endswith('.json'):
+                response.json.return_value = {'subjects': mock_response['docs'][0].get('subject', [])}
+            else:
+                response.json.return_value = mock_response
             return response
         
         monkeypatch.setattr('app.requests.get', mock_get)
@@ -985,9 +1015,13 @@ class TestOpenLibraryIntegration:
         
         def mock_get(*args, **kwargs):
             from unittest.mock import Mock
+            url = args[0] if args else kwargs.get('url', '')
             response = Mock()
             response.status_code = 200
-            response.json.return_value = mock_response
+            if '/works/' in url and url.endswith('.json'):
+                response.json.return_value = {'subjects': mock_response['docs'][0].get('subject', [])}
+            else:
+                response.json.return_value = mock_response
             return response
         
         monkeypatch.setattr('app.requests.get', mock_get)
@@ -1041,15 +1075,20 @@ class TestBookLookupEndpoint:
                 'title': 'The Great Gatsby',
                 'author_name': ['F. Scott Fitzgerald'],
                 'subject': ['American fiction'],
+                'key': '/works/OL468431W',
                 'cover_i': 123456
             }]
         }
         
         def mock_get(*args, **kwargs):
             from unittest.mock import Mock
+            url = args[0] if args else kwargs.get('url', '')
             response = Mock()
             response.status_code = 200
-            response.json.return_value = mock_response
+            if '/works/' in url and url.endswith('.json'):
+                response.json.return_value = {'subjects': mock_response['docs'][0].get('subject', [])}
+            else:
+                response.json.return_value = mock_response
             return response
         
         monkeypatch.setattr('app.requests.get', mock_get)
@@ -1110,9 +1149,14 @@ class TestBookLookupEndpoint:
         
         def mock_get(*args, **kwargs):
             from unittest.mock import Mock
+            url = args[0] if args else kwargs.get('url', '')
             response = Mock()
             response.status_code = 200
-            response.json.return_value = mock_response
+            if '/works/' in url and url.endswith('.json'):
+                # No subjects in this mock
+                response.json.return_value = {'subjects': []}
+            else:
+                response.json.return_value = mock_response
             return response
         
         monkeypatch.setattr('app.requests.get', mock_get)
@@ -1178,9 +1222,13 @@ class TestBookLookupEndpoint:
         
         def mock_get(*args, **kwargs):
             from unittest.mock import Mock
+            url = args[0] if args else kwargs.get('url', '')
             response = Mock()
             response.status_code = 200
-            response.json.return_value = mock_response
+            if '/works/' in url and url.endswith('.json'):
+                response.json.return_value = {'subjects': mock_response['docs'][0].get('subject', [])}
+            else:
+                response.json.return_value = mock_response
             return response
         
         monkeypatch.setattr('app.requests.get', mock_get)
@@ -1212,9 +1260,13 @@ class TestBookLookupEndpoint:
         
         def mock_get(*args, **kwargs):
             from unittest.mock import Mock
+            url = args[0] if args else kwargs.get('url', '')
             response = Mock()
             response.status_code = 200
-            response.json.return_value = mock_response
+            if '/works/' in url and url.endswith('.json'):
+                response.json.return_value = {'subjects': mock_response['docs'][0].get('subject', [])}
+            else:
+                response.json.return_value = mock_response
             return response
         
         monkeypatch.setattr('app.requests.get', mock_get)
