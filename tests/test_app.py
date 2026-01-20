@@ -821,7 +821,11 @@ class TestOpenLibraryIntegration:
             response = Mock()
             response.status_code = 200
             if '/works/' in url and url.endswith('.json'):
-                response.json.return_value = {'subjects': mock_response['docs'][0].get('subject', [])}
+                docs = mock_response.get('docs') if isinstance(mock_response, dict) else None
+                subjects = []
+                if docs:
+                    subjects = docs[0].get('subject', []) if isinstance(docs[0], dict) else []
+                response.json.return_value = {'subjects': subjects}
             else:
                 response.json.return_value = mock_response
             return response
@@ -855,7 +859,11 @@ class TestOpenLibraryIntegration:
             response = Mock()
             response.status_code = 200
             if '/works/' in url and url.endswith('.json'):
-                response.json.return_value = {'subjects': mock_response['docs'][0].get('subject', [])}
+                docs = mock_response.get('docs') if isinstance(mock_response, dict) else None
+                subjects = []
+                if docs:
+                    subjects = docs[0].get('subject', []) if isinstance(docs[0], dict) else []
+                response.json.return_value = {'subjects': subjects}
             else:
                 response.json.return_value = mock_response
             return response
@@ -886,7 +894,11 @@ class TestOpenLibraryIntegration:
             response = Mock()
             response.status_code = 200
             if '/works/' in url and url.endswith('.json'):
-                response.json.return_value = {'subjects': mock_response['docs'][0].get('subject', [])}
+                docs = mock_response.get('docs') if isinstance(mock_response, dict) else None
+                subjects = []
+                if docs:
+                    subjects = docs[0].get('subject', []) if isinstance(docs[0], dict) else []
+                response.json.return_value = {'subjects': subjects}
             else:
                 response.json.return_value = mock_response
             return response
@@ -917,7 +929,11 @@ class TestOpenLibraryIntegration:
             response = Mock()
             response.status_code = 200
             if '/works/' in url and url.endswith('.json'):
-                response.json.return_value = {'subjects': mock_response['docs'][0].get('subject', [])}
+                docs = mock_response.get('docs') if isinstance(mock_response, dict) else None
+                subjects = []
+                if docs:
+                    subjects = docs[0].get('subject', []) if isinstance(docs[0], dict) else []
+                response.json.return_value = {'subjects': subjects}
             else:
                 response.json.return_value = mock_response
             return response
@@ -940,7 +956,11 @@ class TestOpenLibraryIntegration:
             response = Mock()
             response.status_code = 200
             if '/works/' in url and url.endswith('.json'):
-                response.json.return_value = {'subjects': mock_response['docs'][0].get('subject', [])}
+                docs = mock_response.get('docs') if isinstance(mock_response, dict) else None
+                subjects = []
+                if docs:
+                    subjects = docs[0].get('subject', []) if isinstance(docs[0], dict) else []
+                response.json.return_value = {'subjects': subjects}
             else:
                 response.json.return_value = mock_response
             return response
@@ -1019,7 +1039,11 @@ class TestOpenLibraryIntegration:
             response = Mock()
             response.status_code = 200
             if '/works/' in url and url.endswith('.json'):
-                response.json.return_value = {'subjects': mock_response['docs'][0].get('subject', [])}
+                docs = mock_response.get('docs') if isinstance(mock_response, dict) else None
+                subjects = []
+                if docs:
+                    subjects = docs[0].get('subject', []) if isinstance(docs[0], dict) else []
+                response.json.return_value = {'subjects': subjects}
             else:
                 response.json.return_value = mock_response
             return response
@@ -1086,7 +1110,11 @@ class TestBookLookupEndpoint:
             response = Mock()
             response.status_code = 200
             if '/works/' in url and url.endswith('.json'):
-                response.json.return_value = {'subjects': mock_response['docs'][0].get('subject', [])}
+                docs = mock_response.get('docs') if isinstance(mock_response, dict) else None
+                subjects = []
+                if docs:
+                    subjects = docs[0].get('subject', []) if isinstance(docs[0], dict) else []
+                response.json.return_value = {'subjects': subjects}
             else:
                 response.json.return_value = mock_response
             return response
@@ -1226,7 +1254,11 @@ class TestBookLookupEndpoint:
             response = Mock()
             response.status_code = 200
             if '/works/' in url and url.endswith('.json'):
-                response.json.return_value = {'subjects': mock_response['docs'][0].get('subject', [])}
+                docs = mock_response.get('docs') if isinstance(mock_response, dict) else None
+                subjects = []
+                if docs:
+                    subjects = docs[0].get('subject', []) if isinstance(docs[0], dict) else []
+                response.json.return_value = {'subjects': subjects}
             else:
                 response.json.return_value = mock_response
             return response
@@ -1264,7 +1296,11 @@ class TestBookLookupEndpoint:
             response = Mock()
             response.status_code = 200
             if '/works/' in url and url.endswith('.json'):
-                response.json.return_value = {'subjects': mock_response['docs'][0].get('subject', [])}
+                docs = mock_response.get('docs') if isinstance(mock_response, dict) else None
+                subjects = []
+                if docs:
+                    subjects = docs[0].get('subject', []) if isinstance(docs[0], dict) else []
+                response.json.return_value = {'subjects': subjects}
             else:
                 response.json.return_value = mock_response
             return response
