@@ -901,6 +901,42 @@ class TestOpenLibraryIntegration:
         
         assert result is not None
         assert result['genre'] == ''
+
+    def test_fetch_book_works_api_failure(self, monkeypatch):
+        """Search succeeds but works API call fails (timeout) — ensure no genre and function returns."""
+        mock_response = {
+            'docs': [{
+                'title': 'Partial Work',
+                'author_name': ['Some Author'],
+                'key': '/works/OLFAIL',
+                'cover_i': 222
+            }]
+        }
+
+        def mock_get(*args, **kwargs):
+            import requests
+            from unittest.mock import Mock
+            url = args[0] if args else kwargs.get('url', '')
+            # Simulate timeout for works endpoint
+            if '/works/' in url and url.endswith('.json'):
+                raise requests.Timeout('Simulated works API timeout')
+
+            response = Mock()
+            response.status_code = 200
+            response.json.return_value = mock_response
+            return response
+
+        monkeypatch.setattr('app.requests.get', mock_get)
+
+        from app import fetch_book_from_open_library
+        result = fetch_book_from_open_library('9999999999')
+
+        assert result is not None
+        assert result['title'] == 'Partial Work'
+        assert result['author'] == 'Some Author'
+        # Works API failed so genre should be empty string
+        assert result['genre'] == ''
+        assert result['cover_url'] == 'https://covers.openlibrary.org/b/id/222-M.jpg'
     
     def test_fetch_book_not_found(self, monkeypatch):
         """Test book lookup when ISBN is not found."""
