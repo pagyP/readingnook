@@ -91,7 +91,7 @@ For users who want to run the pre-built image from GitHub Container Registry:
 
 3. **Open your browser** and navigate to:
    ```
-   http://localhost:5000
+   http://localhost:8000
    ```
    
    **Note:** The development server runs on port 5000 by default. When using Docker (production), the app runs on port 8000 via Gunicorn.

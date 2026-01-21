@@ -399,13 +399,46 @@ def fetch_book_from_open_library(isbn):
         else:
             result['author'] = ''
         
-        # Subjects (genres) - use subject list if available
-        subjects = book_data.get('subject', [])
-        if subjects:
-            # Use first 3 subjects as genre
-            result['genre'] = ', '.join(subjects[:3])
-        else:
-            result['genre'] = ''
+        # Subjects (genres) - fetch from works API for better metadata
+        result['genre'] = ''
+        work_key = book_data.get('key')
+        if work_key:
+            try:
+                # Fetch work data which includes subjects
+                work_url = f'https://openlibrary.org{work_key}.json'
+                work_response = requests.get(work_url, timeout=3)
+                if work_response.status_code == 200:
+                    work_data = work_response.json()
+                    subjects = work_data.get('subjects', [])
+                    if subjects:
+                        # Use first 3 subjects as genre
+                        result['genre'] = ', '.join(subjects[:3])
+                else:
+                    # Non-200 is expected in some cases; warn so it's visible in logs
+                    app.logger.warning(
+                        f'Open Library works API returned status {work_response.status_code} for work {work_key} (ISBN {isbn_clean})'
+                    )
+            except requests.Timeout as e:
+                # Network timeout - warn because this affects functionality
+                app.logger.warning(
+                    f'Open Library works API timeout for work {work_key} (ISBN {isbn_clean}): {str(e)}'
+                )
+            except requests.RequestException as e:
+                # Other requests-related errors (connection, DNS, etc.)
+                app.logger.warning(
+                    f'Open Library works API request error for work {work_key} (ISBN {isbn_clean}): {str(e)}'
+                )
+            except ValueError as e:
+                # JSON decoding errors
+                app.logger.warning(
+                    f'Invalid JSON from Open Library works API for work {work_key} (ISBN {isbn_clean}): {str(e)}'
+                )
+            except Exception as e:
+                # Unexpected errors should be logged as errors with traceback
+                app.logger.error(
+                    f'Unexpected error fetching work {work_key} from Open Library (ISBN {isbn_clean}): {str(e)}',
+                    exc_info=True
+                )
         
         # Cover image URL - Open Library provides cover_i (image ID)
         cover_id = book_data.get('cover_i')

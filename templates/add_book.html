@@ -169,7 +169,7 @@
             
             <div class="form-group">
                 <label for="author">Author *</label>
-                {{ form.author(size=40, class="form-control") }}
+                {{ form.author(size=40, class="form-control", id="author") }}
                 {% if form.author.errors %}
                     <div class="form-errors">
                         <ul>
@@ -209,7 +209,7 @@
             
             <div class="form-group">
                 <label for="genre">Genre</label>
-                {{ form.genre(size=40, placeholder="Fiction, Mystery, Science Fiction, etc.", class="form-control") }}
+                {{ form.genre(size=40, placeholder="Fiction, Mystery, Science Fiction, etc.", class="form-control", id="genre") }}
                 {% if form.genre.errors %}
                     <div class="form-errors">
                         <ul>
