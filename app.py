@@ -1476,17 +1476,33 @@ def reset_password():
 def index():
     search_query = request.args.get('search', '').strip()
     status_filter = request.args.get('status', 'all').strip()
+    genre_filter = request.args.get('genre', 'all').strip()
     
     # Validate status_filter to prevent invalid values
     VALID_STATUSES = ('all', 'to_read', 'currently_reading', 'read')
     if status_filter not in VALID_STATUSES:
         status_filter = 'all'
+
+    # Build list of genres for the current user to populate the UI
+    genres = [g[0] for g in db.session.query(Book.genre).filter(
+        Book.user_id == current_user.id,
+        Book.genre != None,
+        Book.genre != ''
+    ).distinct().order_by(Book.genre).all()]
+
+    # Validate genre_filter
+    if genre_filter != 'all' and genre_filter not in genres:
+        genre_filter = 'all'
     
     query = Book.query.filter_by(user_id=current_user.id)
     
     # Apply status filter
     if status_filter and status_filter != 'all':
         query = query.filter_by(status=status_filter)
+
+    # Apply genre filter
+    if genre_filter and genre_filter != 'all':
+        query = query.filter(Book.genre == genre_filter)
     
     # Apply search filter
     if search_query:
@@ -1500,8 +1516,15 @@ def index():
         )
     
     books = query.order_by(Book.date_added.desc()).all()
-    
-    return render_template('index.html', books=books, search_query=search_query, status_filter=status_filter)
+
+    return render_template(
+        'index.html',
+        books=books,
+        search_query=search_query,
+        status_filter=status_filter,
+        genres=genres,
+        genre_filter=genre_filter
+    )
 
 @app.route('/add', methods=['GET', 'POST'])
 @login_required
