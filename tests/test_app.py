@@ -67,6 +67,34 @@ def auth_user(client):
     return client, user
 
 
+def make_openlibrary_mock_get(mock_response):
+    """Factory to create a `requests.get` mock that simulates Open Library search and works endpoints.
+
+    It returns a function suitable for `monkeypatch.setattr('app.requests.get', ...)`.
+    The returned function will return `mock_response` for the search endpoint and
+    a `{'subjects': ...}` dict for the works endpoint based on `mock_response['docs'][0]['subject']`.
+    """
+    from unittest.mock import Mock
+
+    def _mock_get(*args, **kwargs):
+        url = args[0] if args else kwargs.get('url', '')
+        response = Mock()
+        response.status_code = 200
+        if '/works/' in url and url.endswith('.json'):
+            docs = mock_response.get('docs') if isinstance(mock_response, dict) else None
+            subjects = []
+            if docs:
+                first = docs[0] if isinstance(docs, list) and docs else None
+                if isinstance(first, dict):
+                    subjects = first.get('subject', []) or []
+            response.json.return_value = {'subjects': subjects}
+        else:
+            response.json.return_value = mock_response
+        return response
+
+    return _mock_get
+
+
 class TestAuthentication:
     """Test user authentication routes."""
     
@@ -777,23 +805,7 @@ class TestOpenLibraryIntegration:
             }]
         }
         
-        def mock_get(*args, **kwargs):
-            # Return different mock responses depending on endpoint called
-            from unittest.mock import Mock
-            url = args[0] if args else kwargs.get('url', '')
-            response = Mock()
-            response.status_code = 200
-            # If fetching work data (ends with .json and contains "/works/"), return subjects
-            if '/works/' in url and url.endswith('.json'):
-                response.json.return_value = {
-                    'subjects': ['American fiction', 'Jazz Age', 'Fiction']
-                }
-            else:
-                # Search endpoint
-                response.json.return_value = mock_response
-            return response
-        
-        monkeypatch.setattr('app.requests.get', mock_get)
+        monkeypatch.setattr('app.requests.get', make_openlibrary_mock_get(mock_response))
         
         from app import fetch_book_from_open_library
         result = fetch_book_from_open_library('978-0743273565')
@@ -811,26 +823,12 @@ class TestOpenLibraryIntegration:
                 'title': 'Some Book',
                 'author_name': ['Author One', 'Author Two', 'Author Three', 'Author Four'],
                 'subject': [],
+                'key': '/works/OLXXXXXX',
                 'cover_i': 789
             }]
         }
         
-        def mock_get(*args, **kwargs):
-            from unittest.mock import Mock
-            url = args[0] if args else kwargs.get('url', '')
-            response = Mock()
-            response.status_code = 200
-            if '/works/' in url and url.endswith('.json'):
-                docs = mock_response.get('docs') if isinstance(mock_response, dict) else None
-                subjects = []
-                if docs:
-                    subjects = docs[0].get('subject', []) if isinstance(docs[0], dict) else []
-                response.json.return_value = {'subjects': subjects}
-            else:
-                response.json.return_value = mock_response
-            return response
-        
-        monkeypatch.setattr('app.requests.get', mock_get)
+        monkeypatch.setattr('app.requests.get', make_openlibrary_mock_get(mock_response))
         
         from app import fetch_book_from_open_library
         result = fetch_book_from_open_library('1234567890')
@@ -850,25 +848,11 @@ class TestOpenLibraryIntegration:
                 'author_name': ['John Doe'],
                 'subject': ['Fiction'],
                 # No cover_i field
+                'key': '/works/OLXXXXXX',
             }]
         }
         
-        def mock_get(*args, **kwargs):
-            from unittest.mock import Mock
-            url = args[0] if args else kwargs.get('url', '')
-            response = Mock()
-            response.status_code = 200
-            if '/works/' in url and url.endswith('.json'):
-                docs = mock_response.get('docs') if isinstance(mock_response, dict) else None
-                subjects = []
-                if docs:
-                    subjects = docs[0].get('subject', []) if isinstance(docs[0], dict) else []
-                response.json.return_value = {'subjects': subjects}
-            else:
-                response.json.return_value = mock_response
-            return response
-        
-        monkeypatch.setattr('app.requests.get', mock_get)
+        monkeypatch.setattr('app.requests.get', make_openlibrary_mock_get(mock_response))
         
         from app import fetch_book_from_open_library
         result = fetch_book_from_open_library('9876543210')
@@ -884,26 +868,12 @@ class TestOpenLibraryIntegration:
                 'title': 'Anonymous Work',
                 # No author_name field
                 'subject': ['Mystery'],
-                'cover_i': 999
+                'cover_i': 999,
+                'key': '/works/OLXXXXXX'
             }]
         }
         
-        def mock_get(*args, **kwargs):
-            from unittest.mock import Mock
-            url = args[0] if args else kwargs.get('url', '')
-            response = Mock()
-            response.status_code = 200
-            if '/works/' in url and url.endswith('.json'):
-                docs = mock_response.get('docs') if isinstance(mock_response, dict) else None
-                subjects = []
-                if docs:
-                    subjects = docs[0].get('subject', []) if isinstance(docs[0], dict) else []
-                response.json.return_value = {'subjects': subjects}
-            else:
-                response.json.return_value = mock_response
-            return response
-        
-        monkeypatch.setattr('app.requests.get', mock_get)
+        monkeypatch.setattr('app.requests.get', make_openlibrary_mock_get(mock_response))
         
         from app import fetch_book_from_open_library
         result = fetch_book_from_open_library('5555555555')
@@ -919,26 +889,12 @@ class TestOpenLibraryIntegration:
                 'title': 'Unclassified Book',
                 'author_name': ['Anonymous'],
                 # No subject field
-                'cover_i': 111
+                'cover_i': 111,
+                'key': '/works/OLXXXXXX'
             }]
         }
         
-        def mock_get(*args, **kwargs):
-            from unittest.mock import Mock
-            url = args[0] if args else kwargs.get('url', '')
-            response = Mock()
-            response.status_code = 200
-            if '/works/' in url and url.endswith('.json'):
-                docs = mock_response.get('docs') if isinstance(mock_response, dict) else None
-                subjects = []
-                if docs:
-                    subjects = docs[0].get('subject', []) if isinstance(docs[0], dict) else []
-                response.json.return_value = {'subjects': subjects}
-            else:
-                response.json.return_value = mock_response
-            return response
-        
-        monkeypatch.setattr('app.requests.get', mock_get)
+        monkeypatch.setattr('app.requests.get', make_openlibrary_mock_get(mock_response))
         
         from app import fetch_book_from_open_library
         result = fetch_book_from_open_library('4444444444')
@@ -950,22 +906,7 @@ class TestOpenLibraryIntegration:
         """Test book lookup when ISBN is not found."""
         mock_response = {'docs': []}  # Empty results
         
-        def mock_get(*args, **kwargs):
-            from unittest.mock import Mock
-            url = args[0] if args else kwargs.get('url', '')
-            response = Mock()
-            response.status_code = 200
-            if '/works/' in url and url.endswith('.json'):
-                docs = mock_response.get('docs') if isinstance(mock_response, dict) else None
-                subjects = []
-                if docs:
-                    subjects = docs[0].get('subject', []) if isinstance(docs[0], dict) else []
-                response.json.return_value = {'subjects': subjects}
-            else:
-                response.json.return_value = mock_response
-            return response
-        
-        monkeypatch.setattr('app.requests.get', mock_get)
+        monkeypatch.setattr('app.requests.get', make_openlibrary_mock_get(mock_response))
         
         from app import fetch_book_from_open_library
         result = fetch_book_from_open_library('0000000000')
@@ -1175,19 +1116,7 @@ class TestBookLookupEndpoint:
         
         mock_response = {'docs': []}  # Empty results
         
-        def mock_get(*args, **kwargs):
-            from unittest.mock import Mock
-            url = args[0] if args else kwargs.get('url', '')
-            response = Mock()
-            response.status_code = 200
-            if '/works/' in url and url.endswith('.json'):
-                # No subjects in this mock
-                response.json.return_value = {'subjects': []}
-            else:
-                response.json.return_value = mock_response
-            return response
-        
-        monkeypatch.setattr('app.requests.get', mock_get)
+        monkeypatch.setattr('app.requests.get', make_openlibrary_mock_get(mock_response))
         
         response = client.post('/api/book-lookup',
             json={'isbn': '0000000000'},
@@ -1244,26 +1173,12 @@ class TestBookLookupEndpoint:
                 'title': 'Test Book',
                 'author_name': ['Test Author'],
                 'subject': ['Test Genre'],
-                'cover_i': 999
+                'cover_i': 999,
+                'key': '/works/OLXXXXXX'
             }]
         }
         
-        def mock_get(*args, **kwargs):
-            from unittest.mock import Mock
-            url = args[0] if args else kwargs.get('url', '')
-            response = Mock()
-            response.status_code = 200
-            if '/works/' in url and url.endswith('.json'):
-                docs = mock_response.get('docs') if isinstance(mock_response, dict) else None
-                subjects = []
-                if docs:
-                    subjects = docs[0].get('subject', []) if isinstance(docs[0], dict) else []
-                response.json.return_value = {'subjects': subjects}
-            else:
-                response.json.return_value = mock_response
-            return response
-        
-        monkeypatch.setattr('app.requests.get', mock_get)
+        monkeypatch.setattr('app.requests.get', make_openlibrary_mock_get(mock_response))
         
         response = client.post('/api/book-lookup',
             json={'isbn': '1111111111'},
@@ -1287,25 +1202,11 @@ class TestBookLookupEndpoint:
             'docs': [{
                 'title': 'Minimal Book',
                 # No author, genre, or cover
+                'key': '/works/OLXXXXXX'
             }]
         }
         
-        def mock_get(*args, **kwargs):
-            from unittest.mock import Mock
-            url = args[0] if args else kwargs.get('url', '')
-            response = Mock()
-            response.status_code = 200
-            if '/works/' in url and url.endswith('.json'):
-                docs = mock_response.get('docs') if isinstance(mock_response, dict) else None
-                subjects = []
-                if docs:
-                    subjects = docs[0].get('subject', []) if isinstance(docs[0], dict) else []
-                response.json.return_value = {'subjects': subjects}
-            else:
-                response.json.return_value = mock_response
-            return response
-        
-        monkeypatch.setattr('app.requests.get', mock_get)
+        monkeypatch.setattr('app.requests.get', make_openlibrary_mock_get(mock_response))
         
         response = client.post('/api/book-lookup',
             json={'isbn': '5555555555'},
