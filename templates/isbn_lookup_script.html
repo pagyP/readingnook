@@ -41,8 +41,6 @@
             
             const bookData = await response.json();
             
-            
-            
             // Populate form fields
             if (bookData.title) {
                 document.getElementById('title').value = bookData.title;
