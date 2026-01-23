@@ -1483,14 +1483,29 @@ def index():
     if status_filter not in VALID_STATUSES:
         status_filter = 'all'
 
-    # Build list of genres for the current user to populate the UI
-    genres = [g[0] for g in db.session.query(Book.genre).filter(
+    # Build list of individual genres for the current user to populate the UI.
+    # Books store comma-separated genre strings (e.g. "Fiction, Mystery, Thriller").
+    # Split those, trim whitespace, deduplicate and sort for the dropdown.
+    raw_genres = db.session.query(Book.genre).filter(
         Book.user_id == current_user.id,
         Book.genre != None,
         Book.genre != ''
-    ).distinct().order_by(Book.genre).all()]
+    ).distinct().all()
 
-    # Validate genre_filter
+    genre_set = set()
+    for g in raw_genres:
+        if not g:
+            continue
+        # g is a 1-tuple like ("Fiction, Mystery",)
+        genre_value = g[0]
+        for part in genre_value.split(','):
+            part = part.strip()
+            if part:
+                genre_set.add(part)
+
+    genres = sorted(genre_set)
+
+    # Validate genre_filter against the expanded genre list
     if genre_filter != 'all' and genre_filter not in genres:
         genre_filter = 'all'
     
@@ -1500,9 +1515,10 @@ def index():
     if status_filter and status_filter != 'all':
         query = query.filter_by(status=status_filter)
 
-    # Apply genre filter
+    # Apply genre filter. Use pattern matching so a user selecting a single
+    # genre will match books whose comma-separated `genre` field contains it.
     if genre_filter and genre_filter != 'all':
-        query = query.filter(Book.genre == genre_filter)
+        query = query.filter(Book.genre.ilike(f'%{genre_filter}%'))
     
     # Apply search filter
     if search_query:
