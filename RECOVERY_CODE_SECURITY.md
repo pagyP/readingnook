@@ -88,7 +88,7 @@ def forgot_password():
 ======================== 100 passed =========================
 
 Breakdown:
-- 82 tests in test_app.py ✅
+- 83 tests in test_app.py ✅
   - 8+ authentication tests
   - 8+ book CRUD tests
   - 6+ search tests
