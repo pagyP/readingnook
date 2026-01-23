@@ -1669,7 +1669,9 @@ def edit_book(id):
         form.title.data = book.title
         form.author.data = book.author
         form.isbn.data = book.isbn
-        form.genre.data = book.genre
+        # Show a normalized genre string in the edit form to avoid
+        # re-introducing leading/trailing whitespace when saving.
+        form.genre.data = normalize_genre_input(book.genre) if book.genre else None
         form.format.data = book.format
         form.status.data = book.status
         form.rating.data = book.rating
