@@ -704,6 +704,26 @@ def validate_cover_url(url):
     
     return url
 
+
+def normalize_genre_input(value):
+    """Normalize a free-text genre input into a canonical comma-separated string.
+
+    - Splits on commas
+    - Strips whitespace around parts
+    - Drops empty parts
+    - Joins parts with single comma+space
+
+    Returns None if input is empty or results in no parts.
+    """
+    if not value:
+        return None
+    # Ensure it's a string
+    value = str(value)
+    parts = [p.strip() for p in value.split(',') if p.strip()]
+    if not parts:
+        return None
+    return ', '.join(parts)
+
 def generate_recovery_codes(user_id, count=8):
     """Generate recovery codes for a user.
     
@@ -1571,7 +1591,7 @@ def add_book():
                 title=form.title.data,
                 author=form.author.data,
                 isbn=form.isbn.data or None,
-                genre=form.genre.data or None,
+                genre=normalize_genre_input(form.genre.data) or None,
                 format=form.format.data,
                 status=form.status.data,
                 rating=form.rating.data or None,
@@ -1629,7 +1649,7 @@ def edit_book(id):
             book.title = form.title.data
             book.author = form.author.data
             book.isbn = form.isbn.data or None
-            book.genre = form.genre.data or None
+            book.genre = normalize_genre_input(form.genre.data) or None
             book.format = form.format.data
             book.status = form.status.data
             book.rating = form.rating.data or None
