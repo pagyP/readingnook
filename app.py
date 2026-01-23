@@ -1507,7 +1507,9 @@ def index():
     # Build list of individual genres for the current user to populate the UI.
     # Books store comma-separated genre strings (e.g. "Fiction, Mystery, Thriller").
     # Split those, trim whitespace, deduplicate and sort for the dropdown.
-    raw_genres = db.session.query(Book.genre).filter(
+    # Query trimmed genre strings at the SQL level so `distinct()` operates
+    # on normalized values (avoids duplicates like 'Fiction' vs ' Fiction').
+    raw_genres = db.session.query(func.trim(Book.genre)).filter(
         Book.user_id == current_user.id,
         Book.genre.isnot(None),
         func.trim(Book.genre) != ''
