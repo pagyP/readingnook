@@ -308,11 +308,21 @@
         color: #155724;
         border: 1px solid #c3e6cb;
     }
+
+    /* Utility class for screen-reader-only labels */
+    .visually-hidden {
+        position: absolute !important;
+        height: 1px; width: 1px;
+        overflow: hidden;
+        clip: rect(1px, 1px, 1px, 1px);
+        white-space: nowrap; /* added line */
+        border: 0; padding: 0; margin: -1px;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-    {% if books or search_query or status_filter != 'all' %}
+    {% if books or search_query or status_filter != 'all' or genre_filter != 'all' %}
         <div class="search-container">
             <form method="GET" class="search-form">
                 <input type="text" name="search" placeholder="Search by title, author, ISBN, or genre..." value="{{ search_query }}">
@@ -322,8 +332,15 @@
                     <option value="currently_reading" {% if status_filter == 'currently_reading' %}selected{% endif %}>📖 Currently Reading</option>
                     <option value="read" {% if status_filter == 'read' %}selected{% endif %}>✓ Read</option>
                 </select>
+                <label for="genre-select" class="visually-hidden">Filter by genre</label>
+                <select id="genre-select" name="genre" class="search-form-select">
+                    <option value="all" {% if genre_filter == 'all' %}selected{% endif %}>All Genres</option>
+                    {% for g in genres %}
+                        <option value="{{ g }}" {% if genre_filter == g %}selected{% endif %}>{{ g }}</option>
+                    {% endfor %}
+                </select>
                 <button type="submit" class="btn btn-primary">Search</button>
-                {% if search_query or status_filter != 'all' %}
+                {% if search_query or status_filter != 'all' or genre_filter != 'all' %}
                     <a href="{{ url_for('index') }}" class="btn btn-secondary">Clear</a>
                 {% endif %}
             </form>

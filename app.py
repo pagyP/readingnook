@@ -10,6 +10,7 @@ from datetime import datetime, timezone, timedelta
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+from sqlalchemy import func
 import pyotp
 import qrcode
 from cryptography.fernet import Fernet, InvalidToken
@@ -703,6 +704,26 @@ def validate_cover_url(url):
         raise ValueError('Cover URL must follow Open Library CDN path structure.')
     
     return url
+
+
+def normalize_genre_input(value):
+    """Normalize a free-text genre input into a canonical comma-separated string.
+
+    - Splits on commas
+    - Strips whitespace around parts
+    - Drops empty parts
+    - Joins parts with single comma+space
+
+    Returns None if input is empty or results in no parts.
+    """
+    if not value:
+        return None
+    # Ensure it's a string
+    value = str(value)
+    parts = [p.strip() for p in value.split(',') if p.strip()]
+    if not parts:
+        return None
+    return ', '.join(parts)
 
 def generate_recovery_codes(user_id, count=8):
     """Generate recovery codes for a user.
@@ -1476,17 +1497,51 @@ def reset_password():
 def index():
     search_query = request.args.get('search', '').strip()
     status_filter = request.args.get('status', 'all').strip()
+    genre_filter = request.args.get('genre', 'all').strip()
     
     # Validate status_filter to prevent invalid values
     VALID_STATUSES = ('all', 'to_read', 'currently_reading', 'read')
     if status_filter not in VALID_STATUSES:
         status_filter = 'all'
+
+    # Build list of individual genres for the current user to populate the UI.
+    # Books store comma-separated genre strings (e.g. "Fiction, Mystery, Thriller").
+    # Split those, trim whitespace, deduplicate and sort for the dropdown.
+    # Query trimmed genre strings at the SQL level so `distinct()` operates
+    # on normalized values (avoids duplicates like 'Fiction' vs ' Fiction').
+    raw_genres = db.session.query(func.trim(Book.genre)).filter(
+        Book.user_id == current_user.id,
+        Book.genre.isnot(None),
+        func.trim(Book.genre) != ''
+    ).distinct().all()
+
+    genre_set = set()
+    for g in raw_genres:
+        if not g:
+            continue
+        # g is a 1-tuple like ("Fiction, Mystery",)
+        genre_value = g[0]
+        for part in genre_value.split(','):
+            part = part.strip()
+            if part:
+                genre_set.add(part)
+
+    genres = sorted(genre_set)
+
+    # Validate genre_filter against the expanded genre list
+    if genre_filter != 'all' and genre_filter not in genres:
+        genre_filter = 'all'
     
     query = Book.query.filter_by(user_id=current_user.id)
     
     # Apply status filter
     if status_filter and status_filter != 'all':
         query = query.filter_by(status=status_filter)
+
+    # Apply genre filter. Use pattern matching so a user selecting a single
+    # genre will match books whose comma-separated `genre` field contains it.
+    if genre_filter and genre_filter != 'all':
+        query = query.filter(Book.genre.ilike(f'%{genre_filter}%'))
     
     # Apply search filter
     if search_query:
@@ -1500,8 +1555,15 @@ def index():
         )
     
     books = query.order_by(Book.date_added.desc()).all()
-    
-    return render_template('index.html', books=books, search_query=search_query, status_filter=status_filter)
+
+    return render_template(
+        'index.html',
+        books=books,
+        search_query=search_query,
+        status_filter=status_filter,
+        genres=genres,
+        genre_filter=genre_filter
+    )
 
 @app.route('/add', methods=['GET', 'POST'])
 @login_required
@@ -1532,7 +1594,7 @@ def add_book():
                 title=form.title.data,
                 author=form.author.data,
                 isbn=form.isbn.data or None,
-                genre=form.genre.data or None,
+                genre=normalize_genre_input(form.genre.data) or None,
                 format=form.format.data,
                 status=form.status.data,
                 rating=form.rating.data or None,
@@ -1590,7 +1652,7 @@ def edit_book(id):
             book.title = form.title.data
             book.author = form.author.data
             book.isbn = form.isbn.data or None
-            book.genre = form.genre.data or None
+            book.genre = normalize_genre_input(form.genre.data) or None
             book.format = form.format.data
             book.status = form.status.data
             book.rating = form.rating.data or None
@@ -1609,7 +1671,9 @@ def edit_book(id):
         form.title.data = book.title
         form.author.data = book.author
         form.isbn.data = book.isbn
-        form.genre.data = book.genre
+        # Show a normalized genre string in the edit form to avoid
+        # re-introducing leading/trailing whitespace when saving.
+        form.genre.data = normalize_genre_input(book.genre) if book.genre else None
         form.format.data = book.format
         form.status.data = book.status
         form.rating.data = book.rating
