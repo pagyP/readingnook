@@ -10,6 +10,7 @@ from datetime import datetime, timezone, timedelta
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+from sqlalchemy import func
 import pyotp
 import qrcode
 from cryptography.fernet import Fernet, InvalidToken
@@ -1508,8 +1509,8 @@ def index():
     # Split those, trim whitespace, deduplicate and sort for the dropdown.
     raw_genres = db.session.query(Book.genre).filter(
         Book.user_id == current_user.id,
-        Book.genre != None,
-        Book.genre != ''
+        Book.genre.isnot(None),
+        func.trim(Book.genre) != ''
     ).distinct().all()
 
     genre_set = set()
