@@ -308,6 +308,16 @@
         color: #155724;
         border: 1px solid #c3e6cb;
     }
+
+    /* Utility class for screen-reader-only labels */
+    .visually-hidden {
+        position: absolute !important;
+        height: 1px; width: 1px;
+        overflow: hidden;
+        clip: rect(1px, 1px, 1px, 1px);
+        white-space: nowrap; /* added line */
+        border: 0; padding: 0; margin: -1px;
+    }
 </style>
 {% endblock %}
 
@@ -322,7 +332,8 @@
                     <option value="currently_reading" {% if status_filter == 'currently_reading' %}selected{% endif %}>📖 Currently Reading</option>
                     <option value="read" {% if status_filter == 'read' %}selected{% endif %}>✓ Read</option>
                 </select>
-                <select name="genre" class="search-form-select">
+                <label for="genre-select" class="visually-hidden">Filter by genre</label>
+                <select id="genre-select" name="genre" class="search-form-select">
                     <option value="all" {% if genre_filter == 'all' %}selected{% endif %}>All Genres</option>
                     {% for g in genres %}
                         <option value="{{ g }}" {% if genre_filter == g %}selected{% endif %}>{{ g }}</option>
