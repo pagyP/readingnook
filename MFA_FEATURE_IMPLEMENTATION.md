@@ -47,7 +47,7 @@ The Reading Nook app now includes **optional Multi-Factor Authentication (MFA)**
 3. User scans QR code with authenticator app
 4. User enters 6-digit code from app + their password to verify
 5. MFA is enabled
-6. **Important**: Recovery codes are shown only once during account registration. Users should save them securely as they cannot be viewed again.
+6. **Important Note**: Recovery codes are generated and displayed once during initial account registration (not during MFA setup). Users should have saved them securely as they cannot be viewed again. These codes can be used for MFA bypass if the authenticator app is lost.
 
 #### Logging In with MFA
 1. User enters email + password
@@ -205,11 +205,11 @@ This error occurs when users try to log in, as the login route attempts to acces
    - Should log in and see warning about MFA disabled
    - MFA should be disabled in Settings
 
-6. **Disable MFA**
-   - Re-enable MFA if desired
-   - Go to Settings → MFA Management
-   - Click "Disable MFA"
-   - Confirm
+6. **Disable MFA (Optional)**
+   - If you want to test disabling MFA:
+   - Go to Settings
+   - Click "Disable MFA" in the MFA section
+   - Enter your password to confirm
    - Future logins won't require MFA
 
 ## Architecture Notes
