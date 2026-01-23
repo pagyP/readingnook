@@ -1,7 +1,7 @@
 ## ✅ TBR Feature - Test Coverage Summary
 
 ### Test Results
-✅ **All 100 tests pass** (82 tests in test_app.py + 18 tests in test_mfa.py)
+✅ **All 102 tests pass** (83 tests in test_app.py + 18 tests in test_mfa.py + 1 test in test_genres.py)
 
 The test_app.py file includes:
 - 14 new TBR tests
