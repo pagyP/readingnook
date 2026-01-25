@@ -68,7 +68,7 @@ This application **requires Docker and Docker Compose**. All other setup is hand
    SQLALCHEMY_DATABASE_URI=postgresql+psycopg://username:password@localhost:5432/readingnook
    ```
    
-   **Note:** A SQLite fallback exists in the code for simple testing, but PostgreSQL is recommended for all environments.
+   **Note:** PostgreSQL is required for all environments. There is no SQLite fallback.
 
 ## Running the Application
 For users who want to run the pre-built image from GitHub Container Registry:
@@ -163,8 +163,9 @@ readingnook/
 │   └── isbn_lookup_script.html # ISBN lookup helper
 └── tests/
     ├── conftest.py           # Pytest configuration
-    ├── test_app.py           # Comprehensive test suite (82 tests)
+    ├── test_app.py           # Comprehensive test suite (83 tests)
     ├── test_mfa.py           # MFA-specific tests (18 tests)
+    ├── test_genres.py        # Genre filtering tests (1 test)
     └── __init__.py
 ```
 
@@ -254,21 +255,18 @@ Consider adding:
 - Export reading history (CSV, PDF)
 - Social features (share lists, follow other readers)
 - Book club features
-- Advanced search and filtering (by format, date range, etc.)
+- Date range filtering (by date_added)
 
 ## Technologies Used
 
 - **Backend:** Flask 3.1.2 (Python web framework)
-- **Database:** PostgreSQL 18.1 (all environments)
 - **Database:** PostgreSQL 18.1 (required)
 - **ORM:** SQLAlchemy 3.0.5
 - **Authentication:** Flask-Login 0.6.3, Flask-WTF 1.2.1
 - **Password Hashing:** Argon2-cffi 25.1.0 (memory-hard hashing)
 - **Rate Limiting:** Flask-Limiter 4.1.1
 - **Frontend:** HTML5, CSS3 (responsive design)
-- **Testing:** Pytest 7.4.4 (100 tests: 82 in test_app.py, 18 in test_mfa.py)
-- **Containerization:** Docker & Docker Compose
-- **Testing:** Pytest 7.4.4 (82 comprehensive tests covering authentication, MFA, books, and recovery)
+- **Testing:** Pytest 7.4.4 (102 tests: 83 in test_app.py, 18 in test_mfa.py, 1 in test_genres.py)
 - **Containerization:** Docker & Docker Compose (required)
 - **Deployment:** Gunicorn 22.0.0, Nginx
 

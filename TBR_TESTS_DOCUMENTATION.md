@@ -1,7 +1,7 @@
 ## ✅ TBR Feature - Test Coverage Summary
 
 ### Test Results
-✅ **All 100 tests pass** (82 tests in test_app.py + 18 tests in test_mfa.py)
+✅ **All 102 tests pass** (83 tests in test_app.py + 18 tests in test_mfa.py + 1 test in test_genres.py)
 
 The test_app.py file includes:
 - 14 new TBR tests
@@ -111,7 +111,7 @@ python3 -m pytest tests/test_app.py::TestTBRFeature::test_filter_books_by_to_rea
 
 ### Test Statistics
 
-- **Total tests:** 100 (82 in test_app.py + 18 in test_mfa.py, all passed ✅)
+- **Total tests:** 102 (83 in test_app.py + 18 in test_mfa.py + 1 in test_genres.py, all passed ✅)
 - **New TBR tests:** 14
 - **Updated tests:** 5
 - **Execution time:** ~25 seconds (varies by system)

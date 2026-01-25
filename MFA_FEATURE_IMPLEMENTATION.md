@@ -46,7 +46,8 @@ The Reading Nook app now includes **optional Multi-Factor Authentication (MFA)**
 2. App generates a TOTP secret and displays a QR code
 3. User scans QR code with authenticator app
 4. User enters 6-digit code from app + their password to verify
-5. MFA is enabled, user can view recovery codes
+5. MFA is enabled
+6. **Important Note**: Recovery codes are generated and displayed once during initial account registration (not during MFA setup). Users should have saved them securely as they cannot be viewed again. These codes can be used for MFA bypass if the authenticator app is lost.
 
 #### Logging In with MFA
 1. User enters email + password
@@ -195,19 +196,20 @@ This error occurs when users try to log in, as the login route attempts to acces
    - Should skip MFA (device is trusted for 30 days)
    - Verify in Settings → Trusted Devices
 
-5. **Test Recovery Code**
-   - Go to Settings → MFA Management
+5. **Test Recovery Code Usage**
+   - Go to Settings → Trusted Devices
    - Click "Revoke All Devices" or manually revoke from device list
    - Log out
    - Log in with email + password
-   - Use recovery code instead of TOTP
+   - Use recovery code instead of TOTP (codes saved from registration)
    - Should log in and see warning about MFA disabled
    - MFA should be disabled in Settings
 
-6. **Disable MFA**
-   - Go to Settings → MFA Management
-   - Click "Disable MFA"
-   - Confirm
+6. **Disable MFA (Optional)**
+   - If you want to test disabling MFA:
+   - Go to Settings
+   - Click "Disable MFA" in the MFA section
+   - Enter your password to confirm
    - Future logins won't require MFA
 
 ## Architecture Notes
